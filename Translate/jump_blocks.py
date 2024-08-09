@@ -299,6 +299,16 @@ class JumpBlocks:
 
         return last_if
 
+    def invert_if_statement(self, statement):
+        line = self.code[statement.start].translated
+        if " != " in line:
+            self.code[statement.start].translated = line.replace(" != ", " == ")
+            return
+        if "!" in line:
+            self.code[statement.start].translated = line.replace("!", "")
+            return
+        self.code[statement.start].translated = line.replace("(", "(!")
+
     def get_or_and_table(self, all_if, last_if):
         known_type_table = {self.get_relative_offset(last_if.start, 1): "||", last_if.end: "&&"}
         known_types = [(self.get_relative_offset(last_if.start, 1), "||"), (last_if.end, "&&")]
@@ -333,7 +343,7 @@ class JumpBlocks:
                 continue
 
             if and_or_table[if_jmp.end] == "&&":
-                pass
+                self.invert_if_statement(if_jmp)
 
             # Replace "if" with the last statement (&& or ||)
             self.code[if_jmp.start].translated = self.code[if_jmp.start].translated.replace("if", last_statement)
