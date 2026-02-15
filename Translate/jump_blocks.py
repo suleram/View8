@@ -28,7 +28,7 @@ class CodeLine:
             return None
         return self.metadata[meta_type]
 
-    def drop_metatata(self, meta_type):
+    def drop_metadata(self, meta_type):
         """
         Remove metadata of particular type from the code line
         """
@@ -47,6 +47,7 @@ class JumpBlocks:
         self.code_list = code
         self.code = {i.line_num: i for i in code}
         self.code_offset = list(self.code)
+        self._offset_to_idx = {off: idx for idx, off in enumerate(self.code_offset)}
         self.jump_table = jump_table
 
     def jump_done(self, jmp):

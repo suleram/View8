@@ -30,17 +30,24 @@ def run_disassembler_binary(binary_path, file_name, out_file_name):
         )
 
     # Open the output file in write mode
-    with open(out_file_name, 'w',  encoding="utf-8") as outfile:
+    with open(out_file_name, 'w', encoding="utf-8", errors="replace") as outfile:
         # Call the binary with the file name as argument and pipe the output to the file
-        try:
-            result = subprocess.run([binary_path, file_name], stdout=outfile, stderr=subprocess.PIPE, text=True)
+        result = subprocess.run(
+            [binary_path, file_name],
+            stdout=outfile,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
 
-            # Check the return status code
-            if result.stderr:
-                raise RuntimeError(
-                    f"Binary execution failed with status code {result.returncode}: {result.stderr.strip()}")
-        except subprocess.CalledProcessError as e:
-            raise RuntimeError(f"Error calling the binary: {e}")
+        # Treat only non-zero exit codes as failure. Some tools may emit warnings to stderr on success.
+        if result.returncode != 0:
+            err = (result.stderr or "").strip()
+            raise RuntimeError(
+                f"Binary execution failed with status code {result.returncode}." + (f" Stderr: {err}" if err else "")
+            )
+
+        if result.stderr:
+            print(f"[!] Disassembler stderr: {result.stderr.strip()}")
 
 
 def parse_v8cache_file(file_name, out_name, view8_dir, binary_path):

@@ -20,7 +20,7 @@
 <ul>
 <li><code>--inp</code>, <code>-i</code>: The input file name</li>
 <li><code>--out</code>, <code>-o</code>: Path to the output (depending on the type of the output, a single file or a directory tree may be generated)</li>
-<li><code>--input_format</code>, <code>-f</code>: Indicate format of the input. Options are: <code>raw</code>: the output is a raw JSC file; <code>disassembled</code>: the input file is already disassembled; <code>serialized</code>: the input is already decompiled, and stored in a serialized format (as an object structure, rather than text)</li>
+<li><code>--input_format</code>, <code>-f</code>: Indicate format of the input. Options are: <code>raw</code>: the output is a raw JSC file; <code>disassembled</code>: the input file is already disassembled; <code>serialized</code>: the input is already decompiled, and stored in a serialized format (pickle; trusted input only)</li>
 <li><code>--export_format</code>, <code>-e</code>: Specify the export format(s). Options are <code>v8_opcode</code>, <code>translated</code>, <code>decompiled</code>, and <code>serialized</code>. Multiple options can be combined (optional, default: <code>decompiled</code>).</li>
 <li><code>--path</code>, <code>-p</code>: Path to disassembler binary. Required if the input is in the raw format.</li>
 <li><code>--tree</code>, <code>-t</code>: Split output into a tree structure (rather than storing all functions in one file). Specify the function that will be used as a top node of the tree. To start from the default main function, use 'start' (optional).</li>
@@ -40,6 +40,7 @@
 <pre><code>python view8.py -i input_file -o output_file -f disassembled</code></pre>
 <h3>Creating and Processing Serialized Files</h3>
 <p>Sometimes we may want to decompile the file into a serialized format (preserving all the objects and structures). This type of an output may be easier to post-process than a text format, and useful i.e. for further deobfuscation. To create a serialized output we use a specific export format: <code>--export_format serialized</code> (or <code>-e serialized</code>)</p>
+<p><strong>Security warning:</strong> the current serialized format is a Python <code>pickle</code> file (<code>.pkl</code>). Unpickling data from untrusted sources can execute arbitrary code. Only load serialized files that you generated yourself.</p>
 <pre><code>python view8.py -i input_file -o output_file -e serialized</code></pre>
 <p>If we ever want to load the serialized output back, and decompile it as a different type of an output, we can do it using <code>--input_format serialized</code> (or <code>-f serialized</code>) option:</p>
 <pre><code>python view8.py -i input_file -o output_file -f serialized</code></pre>

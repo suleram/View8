@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 import os
+import re
 
-from Parser.shared_function_info import *
+from Parser.shared_function_info import SharedFunctionInfo, save_functions_to_file
 
 def is_root(sfi):
     if sfi.declarer is None:

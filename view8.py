@@ -2,8 +2,16 @@
 import argparse
 import os
 
-from view8_util import *
+from view8_util import (
+    export_to_file,
+    find_functions_by_name,
+    get_start_function,
+    print_funcs,
+    save_trees,
+    split_trees,
+)
 from Parser.parse_v8cache import parse_v8cache_file, parse_disassembled_file
+from Parser.shared_function_info import load_functions_from_file
 from Simplify.global_scope_replace import replace_global_scope
 ####
 
@@ -47,7 +55,7 @@ def main():
     parser = argparse.ArgumentParser(description="View8: V8 cache decompiler.")
     group = parser.add_mutually_exclusive_group(required=False)
     group.add_argument('--input_format', '-f', choices=['raw', 'serialized', 'disassembled'],
-        help="Specify the input format. Options are: 'raw', 'serialized', 'disassembled'(mutually exclusive)", default='raw')
+        help="Specify the input format. Options are: 'raw', 'serialized' (pickle; trusted input only), 'disassembled' (mutually exclusive)", default='raw')
     parser.add_argument('--inp', '-i', help="The input file name.", default=None, required=True)
     parser.add_argument('--out', '-o', help="The output file name.", default=None)
     parser.add_argument('--path', '-p', help="Path to disassembler binary. Required if the input is in the raw format.", default=None)
@@ -79,12 +87,12 @@ def main():
     if funcs_to_exclude:
         print(f"Exclude: {len(funcs_to_exclude)} functions")
 
-    if ('serialized' in args.input_format):
+    if args.input_format == 'serialized':
         print(f"Reading from serialized, already decompiled input: {args.inp}")
         all_func = load_functions_from_file(args.inp)
     else:
         disassembled = False
-        if 'disassembled' in args.input_format:
+        if args.input_format == 'disassembled':
             disassembled = True
         all_func = disassemble(args.inp, disassembled, args.path)
         decompile(all_func)

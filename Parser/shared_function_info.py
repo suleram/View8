@@ -3,7 +3,7 @@ from Translate.jump_blocks import CodeLine
 from Simplify.simplify import simplify_translated_bytecode
 import re
 import pickle
-from typing import List, Optional
+from typing import Dict, List, Optional, Union
 
 ###
 
@@ -70,7 +70,7 @@ class GlobalVars:
 
         return None    
 ###
-
+## TODO: make it per file
 g_GlobalVars = GlobalVars()
 
 ###
@@ -177,24 +177,36 @@ class SharedFunctionInfo:
 
 ####
 
+FunctionsBlob = Union[Dict[str, "SharedFunctionInfo"], List["SharedFunctionInfo"]]
+
 # Helper function for serializing multiple functions
-def serialize_functions(functions: List[SharedFunctionInfo]) -> bytes:
-    """Serialize a list of SharedFunctionInfo objects"""
+def serialize_functions(functions: FunctionsBlob) -> bytes:
+    """Serialize decompiled output using pickle.
+
+    SECURITY NOTE:
+      Pickle is unsafe for untrusted input. Only load serialized files that you
+      generated yourself.
+    """
     return pickle.dumps(functions, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-def deserialize_functions(data: bytes) -> List[SharedFunctionInfo]:
-    """Deserialize a list of SharedFunctionInfo objects"""
+def deserialize_functions(data: bytes) -> FunctionsBlob:
+    """Deserialize decompiled output using pickle.
+
+    SECURITY NOTE:
+      Unpickling can execute arbitrary code. Do not load files from untrusted
+      sources.
+    """
     return pickle.loads(data)
 
 
-def save_functions_to_file(functions: List[SharedFunctionInfo], filename: str):
-    """Save multiple functions to a file"""
+def save_functions_to_file(functions: FunctionsBlob, filename: str):
+    """Save decompiled output to a file (pickle)."""
     with open(filename, 'wb') as f:
         f.write(serialize_functions(functions))
 
 
-def load_functions_from_file(filename: str) -> List[SharedFunctionInfo]:
-    """Load multiple functions from a file"""
+def load_functions_from_file(filename: str) -> FunctionsBlob:
+    """Load decompiled output from a file (pickle)."""
     with open(filename, 'rb') as f:
         return deserialize_functions(f.read())
