@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import argparse
 import os
 from Parser.parse_v8cache import parse_v8cache_file, parse_disassembled_file
@@ -65,26 +66,24 @@ def export_to_file(out_name, all_functions, format_list):
     with open(out_name, "w") as f:
         for function_name in list(all_functions)[::-1]:
             f.write(all_functions[function_name].export(export_v8code="v8_opcode" in format_list, export_translated="translated" in format_list, export_decompiled="decompiled" in format_list))
-            
 
 def main():
     parser = argparse.ArgumentParser(description="View8: V8 cache decompiler.")
-    parser.add_argument('input_file', help="The input file name.")
-    parser.add_argument('output_file', help="The output file name.")
+    parser.add_argument('--inp', '-i', help="The input file name.", default=None)
+    parser.add_argument('--out', '-o', help="The output file name.", default=None)
     parser.add_argument('--path', '-p', help="Path to disassembler binary.", default=None)
     parser.add_argument('--disassembled', '-d', action='store_true', help="Indicate if the input file is already disassembled.")
     parser.add_argument('--export_format', '-e', nargs='+', choices=['v8_opcode', 'translated', 'decompiled'], 
                         help="Specify the export format(s). Options are 'v8_opcode', 'translated', and 'decompiled'. Multiple options can be combined.", 
                         default=['decompiled'])
-    parser.add_argument('--include', '-i', nargs='+', help="Functions tree to Include.", default=[])
+    parser.add_argument('--include', '-n', nargs='+', help="Functions tree to Include.", default=[])
     parser.add_argument('--exclude', '-x', nargs='+', help="Functions tree to Exclude.", default=[])
-
     args = parser.parse_args()
     
-    if not os.path.isfile(args.input_file):
+    if not os.path.isfile(args.inp):
         raise FileNotFoundError(f"The input file {args.input_file} does not exist.")
 
-    all_func = disassemble(args.input_file, args.disassembled, args.path)
+    all_func = disassemble(args.inp, args.disassembled, args.path)
     
     if args.exclude:
         remove_exclude_functions(all_func, args.exclude) #["func_unknown_0x1445baf27101", "func_unknown_0x95277699f59"])
@@ -93,8 +92,9 @@ def main():
     
     if args.include:
         all_func = get_included_functions(all_func, args.include)
-        
-    export_to_file(args.output_file, all_func, args.export_format)
+
+    if args.out: 
+        export_to_file(args.out, all_func, args.export_format)
     print(f"Done.")
 
 
