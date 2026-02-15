@@ -67,9 +67,15 @@ def is_reg_defined_in_reg_value(reg, value):
 
 
 def create_loop_reg_scope(prev_reg_scope):
+    reg_scope = {}
     # Because loop regs can be overwritten during loop iteration we define prev scope as overwritten
-    reg_scope = {k: Register("", v.all_initialized_index[0], True) for k, v in prev_reg_scope.items() if
-                 not isinstance(v, int)}
+    for k,v in prev_reg_scope.items():
+        if isinstance(v, int):
+            continue
+        if get_context_idx_from_var(v) != None:
+            reg_scope[k] = prev_reg_scope[k]
+            continue
+        reg_scope[k] = Register("", v.all_initialized_index[0], True)
     reg_scope["current_context"] = prev_reg_scope["current_context"]
     return reg_scope
 
