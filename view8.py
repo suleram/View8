@@ -59,7 +59,7 @@ def main():
         if 'disassembled' in args.input_format:
             disassembled = True
         all_func = disassemble(args.inp, disassembled, args.path)
-        decompile(all_func)
+        decompile(all_func, args.verbosity)
 
     if args.tree:
         tree_root = args.tree
