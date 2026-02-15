@@ -69,7 +69,7 @@ def export_to_file(out_name, all_functions, format_list):
 
 def main():
     parser = argparse.ArgumentParser(description="View8: V8 cache decompiler.")
-    parser.add_argument('--inp', '-i', help="The input file name.", default=None)
+    parser.add_argument('--inp', '-i', help="The input file name.", default=None, required=True)
     parser.add_argument('--out', '-o', help="The output file name.", default=None)
     parser.add_argument('--path', '-p', help="Path to disassembler binary.", default=None)
     parser.add_argument('--disassembled', '-d', action='store_true', help="Indicate if the input file is already disassembled.")
