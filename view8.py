@@ -2,10 +2,9 @@
 import argparse
 import os
 
-from view8_util import *
+from view8_util import export_to_file
 from Parser.parse_v8cache import parse_v8cache_file, parse_disassembled_file
-from Parser.shared_function_info import *
-from Simplify.global_scope_replace import replace_global_scope
+from Simplify.global_scope_replace import *
 
 ####
 
@@ -21,12 +20,12 @@ def disassemble(in_file, input_is_disassembled, disassembler):
     
     return parse_disassembled_file(out_name)
 
-def decompile(all_functions):
+def decompile(all_functions, verbosity):
     # Decompile
     print(f"Decompiling {len(all_functions)} functions.")
     for name in list(all_functions)[::-1]:
         all_functions[name].decompile()
-    replace_global_scope(all_functions)
+    replace_global_scope(all_functions, verbosity)
 
 ###
 
@@ -46,6 +45,7 @@ def main():
     parser.add_argument('--mainlimit', '-l', help="In tree mode: a tree with depth above this limit will be treated as different module than main", type=int, default=1)
     parser.add_argument('--include', '-n', nargs='+', help="Functions tree to Include.", default=[])
     parser.add_argument('--exclude', '-x', nargs='+', help="Functions tree to Exclude.", default=[])
+    parser.add_argument('--verbosity', '-v', help="Verbosity level (0-3)", default=0, type=int, required=False)
     args = parser.parse_args()
     
     if not os.path.isfile(args.inp):

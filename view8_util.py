@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import argparse
 import os
 
 from Parser.shared_function_info import *
@@ -68,6 +67,18 @@ def get_included_functions(all_functions, include_list):
     return new_all_func   
 ###
 
+def _export_to_file(out_name, all_functions, format_list, included_list = None, excluded_list = None):
+    with open(out_name, "w") as f:
+        print(f"Exporting to file {out_name}.")
+        for function_name in list(all_functions)[::-1]:
+            include = True
+            if (excluded_list is not None and len(excluded_list)) and (function_name in excluded_list):
+                include = False
+            if (included_list is not None and len(included_list)) and (function_name not in included_list):
+                include = False
+            if include:
+                f.write(all_functions[function_name].export(export_v8code="v8_opcode" in format_list, export_translated="translated" in format_list, export_decompiled="decompiled" in format_list))
+
 def export_to_file(out_name, all_functions, format_list, included_list = None, excluded_list = None):
     serialize_only = False
     if ('serialized' in format_list):
@@ -80,16 +91,7 @@ def export_to_file(out_name, all_functions, format_list, included_list = None, e
         save_functions_to_file(all_functions, serialized_name)
         if serialize_only:
             return
-    with open(out_name, "w") as f:
-        print(f"Exporting to file: {out_name}")
-        for function_name in list(all_functions)[::-1]:
-            include = True
-            if (excluded_list is not None) and (function_name in excluded_list):
-                include = False
-            if (included_list is not None) and (function_name not in included_list):
-                include = False
-            if include:
-                f.write(all_functions[function_name].export(export_v8code="v8_opcode" in format_list, export_translated="translated" in format_list, export_decompiled="decompiled" in format_list))
+    _export_to_file(out_name, all_functions, format_list, included_list, excluded_list)
 
 ###
 
