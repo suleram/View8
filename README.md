@@ -42,7 +42,7 @@
 <li><code>decompiled</code></li>
 </ul>
 <p>For example, to export both V8 opcodes and decompiled code side by side:</p>
-<pre><code>python view8.py input_file output_file -e v8_opcode decompiled</code></pre>
+<pre><code>python view8.py -i input_file -o output_file -e v8_opcode decompiled</code></pre>
 <p>By default, the format used is <code>decompiled</code>.</p>
 
 <h3>VersionDetector.exe</h3>
