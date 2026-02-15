@@ -30,7 +30,7 @@ def run_disassembler_binary(binary_path, file_name, out_file_name):
         )
 
     # Open the output file in write mode
-    with open(out_file_name, 'w') as outfile:
+    with open(out_file_name, 'w',  encoding="unicode") as outfile:
         # Call the binary with the file name as argument and pipe the output to the file
         try:
             result = subprocess.run([binary_path, file_name], stdout=outfile, stderr=subprocess.PIPE, text=True)
