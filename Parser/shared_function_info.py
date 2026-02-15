@@ -58,7 +58,7 @@ class SharedFunctionInfo:
         #replacements.update({f"ConstPoolLiteral[{idx}]": var for idx, var in enumerate(self.const_pool)})
         
         for line in self.code:
-            if not line.visible or "ConstPool" not in line.decompiled:
+            if "ConstPool" not in line.decompiled:
                 continue
             
             line.decompiled = re.sub(pattern, replacement, line.decompiled)
