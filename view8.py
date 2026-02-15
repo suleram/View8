@@ -24,6 +24,42 @@ def decompile(all_functions):
         all_functions[name].decompile()
     replace_global_scope(all_functions)
 
+
+def build_declaration_map(functions):
+    declared_by = {}
+
+    for func_name, sfi in functions.items():
+        declarer = sfi.declarer
+        if declarer:
+            if declarer not in declared_by:
+                declared_by[declarer] = []
+            declared_by[declarer].append(func_name)
+
+    return declared_by
+
+def remove_exclude_functions(all_functions, exclude_list):
+    declaration_table = build_declaration_map(all_functions)
+    number_of_functoin = len(exclude_list)
+    while exclude_list:
+        current_function = exclude_list.pop()
+        del all_functions[current_function]
+        next_level = declaration_table.get(current_function, [])
+        number_of_functoin += len(next_level)
+        exclude_list += next_level
+    print(f"Removed {number_of_functoin} functions")
+
+def get_included_functions(all_functions, include_list):
+    declaration_table = build_declaration_map(all_functions)
+    number_of_functoin = len(include_list)
+    new_all_func = {}
+    while include_list:
+       current_function = include_list.pop()
+       new_all_func[current_function] = all_functions[current_function]
+       next_level = declaration_table.get(current_function, [])
+       number_of_functoin += len(next_level)
+       include_list += next_level
+    return new_all_func   
+
 def export_to_file(out_name, all_functions, format_list):
     print(f"Exporting to file {out_name}.")
     with open(out_name, "w") as f:
@@ -40,6 +76,8 @@ def main():
     parser.add_argument('--export_format', '-e', nargs='+', choices=['v8_opcode', 'translated', 'decompiled'], 
                         help="Specify the export format(s). Options are 'v8_opcode', 'translated', and 'decompiled'. Multiple options can be combined.", 
                         default=['decompiled'])
+    parser.add_argument('--include', '-i', nargs='+', help="Functions tree to Include.", default=[])
+    parser.add_argument('--exclude', '-x', nargs='+', help="Functions tree to Exclude.", default=[])
 
     args = parser.parse_args()
     
@@ -47,10 +85,18 @@ def main():
         raise FileNotFoundError(f"The input file {args.input_file} does not exist.")
 
     all_func = disassemble(args.input_file, args.disassembled, args.path)
+    
+    if args.exclude:
+        remove_exclude_functions(all_func, args.exclude) #["func_unknown_0x1445baf27101", "func_unknown_0x95277699f59"])
+    
     decompile(all_func)
+    
+    if args.include:
+        all_func = get_included_functions(all_func, args.include)
+        
     export_to_file(args.output_file, all_func, args.export_format)
     print(f"Done.")
 
+
 if __name__ == "__main__":
     main()
-
