@@ -22,7 +22,8 @@
 <li><code>--out</code>, <code>-o</code>: Path to the output (depending on the type of the output, a single file or a directory tree may be generated)</li>
 <li><code>--path</code>, <code>-p</code>: Path to disassembler binary (optional).</li>
 <li><code>--disassembled</code>, <code>-d</code>: Indicate if the input file is already disassembled (optional).</li>
-<li><code>--export_format</code>, <code>-e</code>: Specify the export format(s). Options are <code>v8_opcode</code>, <code>translated</code>, and <code>decompiled</code>. Multiple options can be combined (optional, default: <code>decompiled</code>).</li>
+<li><code>--input_format</code>, <code>-f</code>: Indicate format of the input. Options are: <code>raw</code>: the output is a raw JSC file; <code>disassembled</code>: the input file is already disassembled; <code>serialized</code>: the input is already decompiled, and stored in a serialized format (as an object structure, rather than text)</li>
+<li><code>--export_format</code>, <code>-e</code>: Specify the export format(s). Options are <code>v8_opcode</code>, <code>translated</code>, <code>decompiled</code>, and <code>serialized</code>. Multiple options can be combined (optional, default: <code>decompiled</code>).</li>
 </ul>
 
 <h3>Basic Usage</h3>
@@ -32,14 +33,20 @@
 <p>By default, <code>view8</code> detects the V8 bytecode version of the input file (using <code>VersionDetector.exe</code>) and automatically searches for a compatible disassembler binary in the <code>Bin</code> folder. This can be changed by specifing a different disassembler binary, use the <code>--path</code> (or <code>-p</code>) option:</p>
 <pre><code>python view8.py -i input_file -o output_file --path /path/to/disassembler</code></pre>
 <h3>Processing Disassembled Files</h3>
-<p>To skip the disassembling process and provide an already disassembled file as the input, use the <code>--disassembled</code> (or <code>-d</code>) flag:</p>
-<pre><code>python view8.py input_file output_file --disassembled</code></pre>
+<p>To skip the disassembling process and provide an already disassembled file as the input, use the <code>--input_format disassembled</code> (or <code>-f disassembled</code>) option:</p>
+<pre><code>python view8.py -i input_file -o output_file -f disassembled</code></pre>
+<h3>Creating and Processing Serialized Files</h3>
+<p>Sometimes we may want to decompile the file into a serialized format (preserving all the objects and structures). This type of an output may be easier to post-process than a text format, and useful i.e. for further deobfuscation. To create a serialized output we use a specific export format: <code>--export_format serialized</code> (or <code>-e serialized</code>)</p>
+<pre><code>python view8.py -i input_file -o output_file -e serialized</code></pre>
+<p>If we ever want to load the serialized output back, and decompile it as a different type of an output, we can do it using <code>--input_format serialized</code> (or <code>-f serialized</code>) option:</p>
+<pre><code>python view8.py -i input_file -o output_file -f serialized</code></pre>
 <h3>Export Formats</h3>
 <p>Specify the export format(s) using the <code>--export_format</code> (or <code>-e</code>) option. You can combine multiple formats:</p>
 <ul>
 <li><code>v8_opcode</code></li>
 <li><code>translated</code></li>
 <li><code>decompiled</code></li>
+<li><code>serialized</code></li>
 </ul>
 <p>For example, to export both V8 opcodes and decompiled code side by side:</p>
 <pre><code>python view8.py -i input_file -o output_file -e v8_opcode decompiled</code></pre>
