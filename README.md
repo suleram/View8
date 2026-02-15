@@ -20,10 +20,13 @@
 <ul>
 <li><code>--inp</code>, <code>-i</code>: The input file name</li>
 <li><code>--out</code>, <code>-o</code>: Path to the output (depending on the type of the output, a single file or a directory tree may be generated)</li>
-<li><code>--path</code>, <code>-p</code>: Path to disassembler binary (optional).</li>
-<li><code>--disassembled</code>, <code>-d</code>: Indicate if the input file is already disassembled (optional).</li>
 <li><code>--input_format</code>, <code>-f</code>: Indicate format of the input. Options are: <code>raw</code>: the output is a raw JSC file; <code>disassembled</code>: the input file is already disassembled; <code>serialized</code>: the input is already decompiled, and stored in a serialized format (as an object structure, rather than text)</li>
 <li><code>--export_format</code>, <code>-e</code>: Specify the export format(s). Options are <code>v8_opcode</code>, <code>translated</code>, <code>decompiled</code>, and <code>serialized</code>. Multiple options can be combined (optional, default: <code>decompiled</code>).</li>
+<li><code>--path</code>, <code>-p</code>: Path to disassembler binary. Required if the input is in the raw format.</li>
+<li><code>--tree</code>, <code>-t</code>: Split output into a tree structure (rather than storing all functions in one file). Specify the function that will be used as a top node of the tree. To start from the default main function, use 'start' (optional).</li>
+<li><code>--mainlimit</code>, <code>-l</code>: In tree mode: a tree with depth above this limit will be treated as different module than main (optional).</li>
+<li><code>--include</code>, <code>-n</code>: Functions tree to Include in the output (optional).</li>
+<li><code>--exclude</code>, <code>-x</code>: Functions tree to Exclude from the output (optional).</li>
 </ul>
 
 <h3>Basic Usage</h3>
@@ -59,3 +62,4 @@
     <li><code>-d</code>: Retrieves a hash (little-endian) and returns its corresponding version using brute force.</li>
     <li><code>-f</code>: Retrieves a file and returns its version.</li>
 </ul>
+
