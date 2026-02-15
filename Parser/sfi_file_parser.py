@@ -1,6 +1,7 @@
 from Parser.shared_function_info import SharedFunctionInfo, CodeLine
 from parse import parse
 import re
+import json
 
 all_functions = {}
 repeat_last_line = False
@@ -12,7 +13,7 @@ def set_repeat_line_flag(flag):
 
 
 def get_next_line(file):
-    with open(file) as f:
+    with open(file, errors='ignore') as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -75,8 +76,9 @@ def parse_const_line(lines, func_name):
     if not address:
         return var_idx, value
     if value.startswith("<String"):
-        value = value.split("#", 1)[-1].rstrip('> ').replace('"', '\\"')
-        return var_idx, f'"{value}"'
+        value = json.dumps(value.split("#", 1)[-1].rstrip('> ')) #.replace('"', '\\"')
+        #return var_idx, f'"{value}"'
+        return var_idx, value
     if value.startswith("<SharedFunctionInfo"):
         value = value.split(" ", 1)[-1].rstrip('> ') if " " in value else ""
         return var_idx, parse_shared_function_info(lines, value, func_name)

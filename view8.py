@@ -22,8 +22,7 @@ def decompile(all_functions):
     print(f"Decompiling {len(all_functions)} functions.")
     for name in list(all_functions)[::-1]:
         all_functions[name].decompile()
-    # replace_global_scope(all_functions)
-
+    replace_global_scope(all_functions)
 
 def export_to_file(out_name, all_functions, format_list):
     print(f"Exporting to file {out_name}.")
@@ -52,6 +51,6 @@ def main():
     export_to_file(args.output_file, all_func, args.export_format)
     print(f"Done.")
 
-
 if __name__ == "__main__":
     main()
+

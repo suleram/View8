@@ -47,12 +47,13 @@ def reg_is_constant(reg, value):
 
 
 def get_context_idx_from_var(var):
-    if var.was_overwritten:
-        return
-    pattern = r"Scope\[(\d+)\]"
+    #if var.was_overwritten:
+    #    return
+    pattern = r"^Scope\[(\d+)\]$"
     match = re.match(pattern, var.value)
     if match:
         return int(match.group(1))
+    
     return None
 
 
@@ -149,10 +150,10 @@ class SimplifyCode:
             scope_start, steps = scope.split("-")
             start_context = reg_scope['current_context']
 
-            if scope_start in reg_scope:
+            if scope_start in reg_scope and get_context_idx_from_var(reg_scope[scope_start]) != None:
                 start_context = get_context_idx_from_var(reg_scope[scope_start])
 
-            elif scope_start in prev_reg_scope:
+            elif scope_start in prev_reg_scope and get_context_idx_from_var(prev_reg_scope[scope_start]) != None:
                 start_context = get_context_idx_from_var(prev_reg_scope[scope_start])
 
             return f"Scope[{function_context_stack.get_context(start_context, int(steps))}]"
