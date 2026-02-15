@@ -1,12 +1,45 @@
 class CodeLine:
-    def __init__(self, opcode="", line="", inst="", translated=""):
+    def __init__(self, opcode="", line="", inst="", translated="", decompiled=""):
         self.v8_opcode = opcode
         self.line_num = line
         self.v8_instruction = inst
         self.translated = translated
-        self.decompiled = ""
+        self.decompiled = decompiled
         self.visible = True
+        self.metadata = None
 
+    def set_metadata(self, meta_type, meta_val):
+        """
+        Set metadata of particular type the code line
+        """
+        if not self.metadata:
+            self.metadata = dict()
+        self.metadata[meta_type] = meta_val
+
+    def get_metadata(self, meta_type):
+        """
+        Retrieve metadata of particular type from the code line
+        """
+        if not self.metadata:
+            return None
+        if not isinstance(self.metadata, dict):
+            return None
+        if not meta_type in self.metadata:
+            return None
+        return self.metadata[meta_type]
+
+    def drop_metatata(self, meta_type):
+        """
+        Remove metadata of particular type from the code line
+        """
+        if not self.metadata:
+            return False   
+        if not isinstance(self.metadata, dict):
+            return False
+        if not meta_type in self.metadata:
+            return False
+        self.metadata.pop(meta_type, None)
+        return True
 
 class JumpBlocks:
     def __init__(self, name, code, jump_table):

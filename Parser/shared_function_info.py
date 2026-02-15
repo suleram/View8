@@ -1,18 +1,10 @@
 from Translate.translate import translate_bytecode
+from Translate.jump_blocks import CodeLine
 from Simplify.simplify import simplify_translated_bytecode
+
 import re
 import pickle
 from typing import List, Optional
-
-class CodeLine:
-    def __init__(self, opcode="", line="", inst="", translated="", decompiled=""):
-        self.v8_opcode = opcode
-        self.line_num = line
-        self.v8_instruction = inst
-        self.translated = translated
-        self.decompiled = decompiled
-        self.visible = True
-
 
 class SharedFunctionInfo:
     def __init__(self):
@@ -24,6 +16,8 @@ class SharedFunctionInfo:
         self.code = None
         self.const_pool = None
         self.exception_table = None
+        self.visible = True
+        self.metadata = None
 
     def is_fully_parsed(self):
         return all(
