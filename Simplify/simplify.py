@@ -36,11 +36,11 @@ def reg_is_constant(reg, value):
         return False
 
     # Variable is set to a constant value
-    if re.search(r"^[\(]*(Scope|ConstPool|<|true|false|Undefined|Null|null|[+-]?\d)", value):
+    if re.search(r"^[\(]*(Scope|ConstPool|ConstPoolLiteral|<|true|false|Undefined|Null|null|[+-]?\d)", value):
         return True
 
     # Variable is set to register[ConstPool[idx]]
-    if re.search(r"^[ra]\d+\[[\(]*ConstPool\[\d+\]", value):
+    if re.search(r"^[ra]\d+\[[\(]*(ConstPool|ConstPoolLiteral)\[\d+\]", value):
         return True
 
     return False

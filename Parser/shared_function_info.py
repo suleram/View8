@@ -1,6 +1,6 @@
 from Translate.translate import translate_bytecode
 from Simplify.simplify import simplify_translated_bytecode
-
+import re
 
 class CodeLine:
     def __init__(self, opcode="", line="", inst="", translated="", decompiled=""):
@@ -41,12 +41,25 @@ class SharedFunctionInfo:
         simplify_translated_bytecode(self, self.code)
 
     def replace_const_pool(self):
-        replacements = {f"ConstPool[{idx}]": var for idx, var in enumerate(self.const_pool)}
+    
+        def replacement(match):
+            index = int(match.group(2))
+            value = self.const_pool[index]
+            if match.group(1) == "ConstPool": #Not ConstPoolLiteral
+                return value.strip('"')
+            return value
+    
+        # Regular expression to match patterns A[NUMBER] or B[NUMBER]
+        pattern = r'(ConstPoolLiteral|ConstPool)\[(\d+)\]'
+
+        #replacements = {f"ConstPool[{idx}]": var.strip('"') for idx, var in enumerate(self.const_pool)}
+        #replacements.update({f"ConstPoolLiteral[{idx}]": var for idx, var in enumerate(self.const_pool)})
+        
         for line in self.code:
-            if not line.visible:
+            if not line.visible or "ConstPool" not in line.decompiled:
                 continue
-            for const_id, var in replacements.items():
-                line.decompiled = line.decompiled.replace(const_id, var)
+            
+            line.decompiled = re.sub(pattern, replacement, line.decompiled)
 
     def decompile(self):
         self.translate_bytecode()
