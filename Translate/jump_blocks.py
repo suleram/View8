@@ -47,7 +47,6 @@ class JumpBlocks:
         self.code_list = code
         self.code = {i.line_num: i for i in code}
         self.code_offset = list(self.code)
-        self._offset_to_idx = {off: idx for idx, off in enumerate(self.code_offset)}
         self.jump_table = jump_table
 
     def jump_done(self, jmp):
@@ -57,10 +56,14 @@ class JumpBlocks:
 
     def get_relative_offset(self, offset, n):
         # return a relative line offset to a given offset
-        new_offset = self.code_offset.index(offset) + n
-        if 0 <= new_offset <= len(self.code_offset):
-            return self.code_offset[new_offset]
-        raise Exception(f"relative offset {new_offset} from {offset} out of range")
+        try:
+            base_idx = self.code_offset.index(offset)
+        except ValueError:
+            raise KeyError(f"offset {offset} not found in code offsets")
+        new_idx = base_idx + n
+        if 0 <= new_idx < len(self.code_offset):
+            return self.code_offset[new_idx]
+        raise IndexError(f"relative offset {new_idx} from {offset} out of range")
 
     def get_all_jump_list(self):
         # Combine all jumps from the jump tables into one list
