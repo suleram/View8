@@ -20,7 +20,7 @@ class GlobalVars:
 
         is_parsed = False
         _strings_set = set(re.findall(r'"([^"\\]*(?:\\.[^"\\]*)*)"', value))
-        _funcs_set = set(re.findall(r'\bfunc_[A-Za-z0-9_$]+\b', value))
+        _funcs_set = set(re.findall(r'\bfunc_[A-Za-z0-9_$]+_0x[0-9a-fA-F]+\b', value))
         if _strings_set:
             is_parsed = True
             if not self.strings_set:
