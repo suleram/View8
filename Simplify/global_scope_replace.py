@@ -43,7 +43,7 @@ def find_assignment_op(line: str) -> Optional[int]:
 def _print_assignments(scope_assignments):
     for key in scope_assignments.keys():
         if scope_assignments[key] is None:
-             continue
+            continue
         (x,y) = key
         print(f"Scope[{x}][{y}] = {scope_assignments[key]}")
 
