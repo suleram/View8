@@ -48,6 +48,20 @@ def _print_assignments(scope_assignments):
         print(f"Scope[{x}][{y}] = {scope_assignments[key]}")
 
 def _replace_global_scope2_func(all_functions, verbosity) -> int:
+    """
+    Collect 2 dimensional Scope definitions, i.e. `Scope[x][y] = value`
+    Replace their occurrences in the code with the literal value.
+    Only the Scope values that are assigned once are used for the replacements.
+    """
+
+    def _replace_value(match):
+        key = (match.group(1), match.group(2))
+        cnt = scope_counts.get(key, 0)
+        val = scope_assignments.get(key)
+        if cnt == 1 and val is not None:
+            return val
+        return match.group(0)
+
     scope_assignments = {}
     scope_counts = defaultdict(int)
     
@@ -91,25 +105,11 @@ def _replace_global_scope2_func(all_functions, verbosity) -> int:
                 rhs = line[idx + 1:]
 
                 # Only replace Scope[x][y] if it appears **not** in LHS
-                def replace_usage(match):
-                    key = (match.group(1), match.group(2))
-                    cnt = scope_counts.get(key, 0)
-                    val = scope_assignments.get(key)
-                    if cnt == 1 and val is not None:
-                        return val
-                    return match.group(0)
-                new_rhs = pattern2.sub(replace_usage, rhs)
+                new_rhs = pattern2.sub(_replace_value, rhs)
                 new_line = lhs + '=' + new_rhs
             else:
                 # No assignment; apply replacements freely
-                def replace_free(match):
-                    key = (match.group(1), match.group(2))
-                    cnt = scope_counts.get(key, 0)
-                    val = scope_assignments.get(key)
-                    if cnt == 1 and val is not None:
-                        return val
-                    return match.group(0)
-                new_line = pattern2.sub(replace_free, line)
+                new_line = pattern2.sub(_replace_value, line)
 
             if new_line != line:
                 replaced_count += 1
