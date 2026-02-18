@@ -195,7 +195,7 @@ def get_included_functions(all_functions, include_list):
 ###
 
 def _export_to_file(out_name, all_functions, format_list, included_list = None, excluded_list = None):
-    with open(out_name, "w") as f:
+    with open(out_name, "w", encoding="utf-8") as f:
         print(f"Exporting to file {out_name}")
         for function_name in list(all_functions)[::-1]:
             include = True
