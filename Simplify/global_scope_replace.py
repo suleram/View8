@@ -93,18 +93,23 @@ def _replace_global_scope2_func(all_functions, verbosity) -> int:
                 # Only replace Scope[x][y] if it appears **not** in LHS
                 def replace_usage(match):
                     key = (match.group(1), match.group(2))
-                    if scope_counts[key] == 1 and scope_assignments[key] is not None:
-                        return scope_assignments[key]
+                    cnt = scope_counts.get(key, 0)
+                    val = scope_assignments.get(key)
+                    if cnt == 1 and val is not None:
+                        return val
                     return match.group(0)
                 new_rhs = pattern2.sub(replace_usage, rhs)
                 new_line = lhs + '=' + new_rhs
             else:
                 # No assignment; apply replacements freely
-                new_line = pattern2.sub(lambda m: (
-                    scope_assignments[(m.group(1), m.group(2))]
-                    if scope_counts[(m.group(1), m.group(2))] == 1 and scope_assignments[(m.group(1), m.group(2))] is not None
-                    else m.group(0)
-                ), line)
+                def replace_free(match):
+                    key = (match.group(1), match.group(2))
+                    cnt = scope_counts.get(key, 0)
+                    val = scope_assignments.get(key)
+                    if cnt == 1 and val is not None:
+                        return val
+                    return match.group(0)
+                new_line = pattern2.sub(replace_free, line)
 
             if new_line != line:
                 replaced_count += 1
