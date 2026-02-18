@@ -130,6 +130,9 @@ class SharedFunctionInfo:
 
         def replacement(match):
             index = int(match.group(2))
+            if index not in self.const_pool:
+                return match.group(0) #Leave unchanged
+            
             value = self.const_pool[index]
             if match.group(1) == "ConstPool": #Not ConstPoolLiteral
 
