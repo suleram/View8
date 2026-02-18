@@ -60,9 +60,8 @@ def load_functions_set(filename):
 
 def main():
     parser = argparse.ArgumentParser(description="View8: V8 cache decompiler.")
-    group = parser.add_mutually_exclusive_group(required=False)
-    group.add_argument('--input_format', '-f', choices=['raw', 'serialized', 'disassembled'],
-        help="Specify the input format. Options are: 'raw', 'serialized' (pickle; trusted input only), 'disassembled' (mutually exclusive)", default='raw')
+    parser.add_argument('--input_format', '-f', choices=['raw', 'serialized', 'disassembled'],
+        help="Specify the input format. Options are: 'raw', 'serialized' (pickle; trusted input only), 'disassembled'.", default='raw')
     parser.add_argument('--inp', '-i', help="The input file name.", default=None, required=True)
     parser.add_argument('--out', '-o', help="The output file name.", default=None)
     parser.add_argument('--path', '-p', help="Path to disassembler binary. Required if the input is in the raw format.", default=None)
