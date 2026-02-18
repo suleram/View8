@@ -86,14 +86,10 @@ def rename_functions_in_code(
     regex = re.compile(func_pattern)
     
     for func in functions.values():
-        indx = 0
-        while True:
-            indx = next_visible_line(func, indx)
-            if indx is None:
-                break
-
+        for indx in range(len(func.code)):
+            if (not func.code[indx].visible) or (not func.code[indx].decompiled):
+                continue
             line = func.code[indx].decompiled
-
             # Replace only if the found name is in renamed_dict
             def repl(m):
                 name = m.group(1)
