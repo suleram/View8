@@ -5,6 +5,8 @@ import re
 from Parser.shared_function_info import SharedFunctionInfo, save_functions_to_file
 
 def is_root(sfi):
+    if sfi is None:
+        return False
     if sfi.declarer is None:
         return True
     return False
