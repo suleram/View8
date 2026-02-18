@@ -241,6 +241,8 @@ def export_to_file(out_name, all_functions, format_list, included_list = None, e
 
 def split_trees(functions, curr_func):
     sfi = functions.get(curr_func)
+    if sfi is None:
+        return None
     print("Tree root: " + sfi.name)
     if sfi.declarer is None:
         print("Declarer Root")
