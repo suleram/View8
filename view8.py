@@ -60,7 +60,7 @@ def main():
     parser.add_argument('--out', '-o', help="The output file name.", default=None)
     parser.add_argument('--path', '-p', help="Path to disassembler binary. Required if the input is in the raw format.", default=None)
     parser.add_argument('--export_format', '-e', nargs='+', choices=['v8_opcode', 'translated', 'decompiled', 'serialized'], 
-                        help="Specify the export format(s). Options are 'v8_opcode', 'translated', and 'decompiled'. Multiple options can be combined.", 
+                        help="Specify the export format(s). Options are 'v8_opcode', 'translated', 'decompiled', and 'serialized'. Multiple options can be combined.", 
                         default=['decompiled'])
     parser.add_argument('--scope', help="Propagate scope arguments.", default=1, type=int, required=False)
     parser.add_argument('--tree', '-t', help="Show functions tree, starting from a given node. To start from the default main function, use 'start'", default=None)
