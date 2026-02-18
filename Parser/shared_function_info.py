@@ -13,7 +13,7 @@ class GlobalVars:
         self.strings_set = None
         self.funcs_map = None
 
-    def parse(self, value):
+    def parse(self, value) -> bool:
 
         def _extract_name(func):
             return func[len("func_"):func.rindex("_0x")]
@@ -36,12 +36,12 @@ class GlobalVars:
                 self.funcs_map[short_name] = func
         return is_parsed
      
-    def is_filled(self):
+    def is_filled(self) -> bool:
         if self.strings_set or self.funcs_map:
             return True
         return False
 
-    def has_value(self, value):
+    def has_value(self, value) -> bool:
         if self.strings_set is not None:
             val = value.strip('"')
             if (value in self.strings_set or val in self.strings_set):
@@ -51,7 +51,7 @@ class GlobalVars:
                 return True
         return False
     
-    def resolve_global_name(self, value):
+    def resolve_global_name(self, value) -> Optional[str]:
 
         def _is_string(value):
             if value.startswith('"') and value.endswith('"'):
@@ -128,7 +128,7 @@ class SharedFunctionInfo:
 
     def replace_const_pool(self, global_vars: GlobalVars):
 
-        def replacement(match):
+        def _replacement(match):
             index = int(match.group(2))
             # Ensure const_pool exists and index is within valid bounds; otherwise leave unchanged
             if self.const_pool is None or not (0 <= index < len(self.const_pool)):
@@ -153,7 +153,7 @@ class SharedFunctionInfo:
         for line in self.code:
             if "ConstPool" not in line.decompiled:
                 continue
-            line.decompiled = re.sub(pattern, replacement, line.decompiled)
+            line.decompiled = re.sub(pattern, _replacement, line.decompiled)
 
     def decompile(self, global_vars: GlobalVars):
         self.translate_bytecode()
