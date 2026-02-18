@@ -27,7 +27,7 @@ def get_start_function(functions):
     return None
 
 def get_declared_children(functions, curr_func):
-    children_list = [ ]
+    children_list = []
     for func_name, sfi in functions.items():
         declarer = sfi.declarer
         if declarer == curr_func:
