@@ -12,6 +12,8 @@ def is_root(sfi):
     return False
 
 def get_start_function(functions):
+    if not functions:
+        return None
     curr_func = next(iter(functions))
     while True:
         sfi = functions.get(curr_func)
