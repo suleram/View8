@@ -1,6 +1,45 @@
 import re
 from collections import defaultdict
 
+
+def find_assignment_op(line: str) -> int | None:
+    """
+    Return the index of the first assignment '=' in `line` that is not part of
+    ==, ===, !=, <=, >=, =>. Ignores '=' inside single or double quoted strings.
+    Note: backtick/template strings are not tracked (they don't appear in
+    decompiled bytecode output).
+    """
+    in_sq = False   # inside single-quoted string
+    in_dq = False   # inside double-quoted string
+    esc = False
+
+    for i, ch in enumerate(line):
+        if esc:
+            esc = False
+            continue
+        if ch == '\\' and (in_sq or in_dq):
+            esc = True
+            continue
+        if ch == "'" and not in_dq:
+            in_sq = not in_sq
+            continue
+        if ch == '"' and not in_sq:
+            in_dq = not in_dq
+            continue
+        if in_sq or in_dq:
+            continue
+        if ch == '=':
+            prev = line[i - 1] if i > 0 else ''
+            nxt  = line[i + 1] if i + 1 < len(line) else ''
+            if nxt in ('=', '>'):       # == / === / =>
+                continue
+            if prev in ('!', '<', '>'):  # != / <= / >=  (drop '=' from prev check)
+                continue
+            return i
+    return None
+
+###
+
 def _print_assignments(scope_assignments):
     for key in scope_assignments.keys():
         if scope_assignments[key] is None:
@@ -46,8 +85,10 @@ def _replace_global_scope2_func(all_functions, verbosity) -> int:
             line = line_obj.decompiled
 
             # Split into left-hand and right-hand side of assignment
-            if '=' in line:
-                lhs, rhs = line.split('=', 1)
+            idx = find_assignment_op(line)
+            if idx is not None:
+                lhs = line[:idx]
+                rhs = line[idx + 1:]
 
                 # Only replace Scope[x][y] if it appears **not** in LHS
                 def replace_usage(match):
