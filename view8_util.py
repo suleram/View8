@@ -175,7 +175,7 @@ def remove_exclude_functions(all_functions, exclude_list):
     number_of_function = len(exclude_list)
     while exclude_list:
         current_function = exclude_list.pop()
-        del all_functions[current_function]
+        all_functions.pop(current_function, None)
         next_level = declaration_table.get(current_function, [])
         number_of_function += len(next_level)
         exclude_list += next_level
