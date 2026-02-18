@@ -2,6 +2,10 @@
 import argparse
 import os
 
+from Parser.parse_v8cache import parse_v8cache_file, parse_disassembled_file
+from Parser.shared_function_info import GlobalVars, load_functions_from_file
+from Simplify.global_scope_replace import replace_global_scope
+
 from view8_util import (
     export_to_file,
     find_functions_by_name,
@@ -10,9 +14,6 @@ from view8_util import (
     save_trees,
     split_trees,
 )
-from Parser.parse_v8cache import parse_v8cache_file, parse_disassembled_file
-from Parser.shared_function_info import load_functions_from_file
-from Simplify.global_scope_replace import replace_global_scope
 ####
 
 def disassemble(in_file, input_is_disassembled, disassembler):
@@ -27,11 +28,12 @@ def disassemble(in_file, input_is_disassembled, disassembler):
     
     return parse_disassembled_file(out_name)
 
+
 def decompile(all_functions):
-    # Decompile
+    global_vars = GlobalVars()
     print(f"Decompiling {len(all_functions)} functions.")
     for name in list(all_functions)[::-1]:
-        all_functions[name].decompile()
+        all_functions[name].decompile(global_vars)
 
 def propagate_global_scope(all_func, verbosity):
     if replace_global_scope(all_func, verbosity):

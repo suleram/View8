@@ -1,6 +1,7 @@
 from Translate.translate import translate_bytecode
 from Translate.jump_blocks import CodeLine
 from Simplify.simplify import simplify_translated_bytecode
+
 import re
 import pickle
 from typing import Dict, List, Optional, Union
@@ -71,9 +72,6 @@ class GlobalVars:
             return self.funcs_map[val]
 
         return None    
-###
-## TODO: make it per file
-g_GlobalVars = GlobalVars()
 
 ###
 
@@ -107,11 +105,10 @@ class SharedFunctionInfo:
     def simplify_bytecode(self):
         simplify_translated_bytecode(self, self.code)
 
-    def fill_global_variables(self):
+    def fill_global_variables(self, global_vars: GlobalVars):
         """
         If the Global Vars were defined anywhere in this function, fill them in and store in the global structure.
         """
-        global g_GlobalVars
 
         patternDef = re.compile(r'ConstPoolLiteral\[(\d+)\]')
 
@@ -123,19 +120,18 @@ class SharedFunctionInfo:
             if not match:
                 continue
             index = int(match.group(1))
-            if g_GlobalVars.parse(self.const_pool[index]):
+            if global_vars.parse(self.const_pool[index]):
                 return True
         return False
 
-    def replace_const_pool(self):
-        global g_GlobalVars
-    
+    def replace_const_pool(self, global_vars: GlobalVars):
+
         def replacement(match):
             index = int(match.group(2))
             value = self.const_pool[index]
             if match.group(1) == "ConstPool": #Not ConstPoolLiteral
 
-                global_symbol = g_GlobalVars.resolve_global_name(value)
+                global_symbol = global_vars.resolve_global_name(value)
                 if global_symbol:
                     return global_symbol
 
@@ -153,11 +149,11 @@ class SharedFunctionInfo:
                 continue
             line.decompiled = re.sub(pattern, replacement, line.decompiled)
 
-    def decompile(self):
+    def decompile(self, global_vars: GlobalVars):
         self.translate_bytecode()
         self.simplify_bytecode()
-        self.fill_global_variables()
-        self.replace_const_pool()
+        self.fill_global_variables(global_vars)
+        self.replace_const_pool(global_vars)
 
     def export(self, export_v8code=False, export_translated=False, export_decompiled=True):
         export_func = self.create_function_header() + '\n'
