@@ -41,11 +41,13 @@ class GlobalVars:
         return False
 
     def has_value(self, value):
-        val =  value.strip('"')
-        if (value in self.strings_set or val in self.strings_set):
-            return True
-        if value in self.funcs_map.keys():
-            return True
+        if self.strings_set is not None:
+            val = value.strip('"')
+            if (value in self.strings_set or val in self.strings_set):
+                return True
+        if self.funcs_map is not None:
+            if value in self.funcs_map.keys():
+                return True
         return False
     
     def resolve_global_name(self, value):
