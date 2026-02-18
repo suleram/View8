@@ -74,7 +74,6 @@ def _replace_global_scope2_func(all_functions, verbosity) -> int:
 
 def replace_global_scope(all_functions, verbosity) -> int:
     total_repl = 0
-    round = 0
     while True:
         repl_cnt = _replace_global_scope2_func(all_functions, verbosity)
         if not repl_cnt:
