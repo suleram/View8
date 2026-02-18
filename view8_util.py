@@ -61,9 +61,11 @@ def _rename_functions(
     new_functions: dict[str, SharedFunctionInfo] = {}
 
     for name, func in functions.items():
-        if name in renamed_dict:
+        if name in renamed_dict.keys():
             new_name = renamed_dict[name]
             func.name = new_name
+            if func.declarer in renamed_dict.keys():
+                func.declarer = renamed_dict[func.declarer]
             new_functions[new_name] = func
             renamed_count += 1
         else:
