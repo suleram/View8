@@ -120,7 +120,13 @@ def main():
         tree_root = args.tree
         if tree_root == "start":
             tree_root = get_start_function(all_func)
+        if not tree_root:
+            print("Error: tree root function not found.")
+            return
         items_map = split_trees(all_func, tree_root)
+        if items_map is None:
+            print(f"Error: could not build tree from root '{tree_root}'.")
+            return
         if args.out:
             save_trees(all_func, tree_root, args.mainlimit, items_map, args.out, args.export_format, funcs_to_exclude)
             print(f"Done.")
