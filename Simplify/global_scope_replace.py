@@ -1,8 +1,8 @@
 import re
 from collections import defaultdict
+from typing import Optional
 
-
-def find_assignment_op(line: str) -> int | None:
+def find_assignment_op(line: str) -> Optional[int]:
     """
     Return the index of the first assignment '=' in `line` that is not part of
     ==, ===, !=, <=, >=, =>. Ignores '=' inside single or double quoted strings.
