@@ -10,7 +10,7 @@ class CodeLine:
 
     def set_metadata(self, meta_type, meta_val):
         """
-        Set metadata of particular type the code line
+        Set metadata of a particular type for the code line
         """
         if not self.metadata:
             self.metadata = dict()
