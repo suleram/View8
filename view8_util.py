@@ -172,24 +172,24 @@ def build_declaration_map(functions):
 
 def remove_exclude_functions(all_functions, exclude_list):
     declaration_table = build_declaration_map(all_functions)
-    number_of_functoin = len(exclude_list)
+    number_of_function = len(exclude_list)
     while exclude_list:
         current_function = exclude_list.pop()
         del all_functions[current_function]
         next_level = declaration_table.get(current_function, [])
-        number_of_functoin += len(next_level)
+        number_of_function += len(next_level)
         exclude_list += next_level
-    print(f"Removed {number_of_functoin} functions")
+    print(f"Removed {number_of_function} functions")
 
 def get_included_functions(all_functions, include_list):
     declaration_table = build_declaration_map(all_functions)
-    number_of_functoin = len(include_list)
+    number_of_function = len(include_list)
     new_all_func = {}
     while include_list:
        current_function = include_list.pop()
        new_all_func[current_function] = all_functions[current_function]
        next_level = declaration_table.get(current_function, [])
-       number_of_functoin += len(next_level)
+       number_of_function += len(next_level)
        include_list += next_level
     return new_all_func   
 ###
