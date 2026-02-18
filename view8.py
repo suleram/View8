@@ -113,7 +113,7 @@ def main():
         filtered = find_functions_by_name(all_func, func_name)
         if func_name not in filtered:
             print(f"Function {func_name} was not found. Found {len(filtered)} similar names.")
-            for key in filtered.keys():
+            for key in filtered:
                 print(key)
         if len(filtered) == 0:
             return

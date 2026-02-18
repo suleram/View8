@@ -24,7 +24,7 @@ class CodeLine:
             return None
         if not isinstance(self.metadata, dict):
             return None
-        if not meta_type in self.metadata:
+        if meta_type not in self.metadata:
             return None
         return self.metadata[meta_type]
 

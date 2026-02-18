@@ -61,10 +61,10 @@ def _rename_functions(
     new_functions: dict[str, SharedFunctionInfo] = {}
 
     for name, func in functions.items():
-        if name in renamed_dict.keys():
+        if name in renamed_dict:
             new_name = renamed_dict[name]
             func.name = new_name
-            if func.declarer in renamed_dict.keys():
+            if func.declarer in renamed_dict:
                 func.declarer = renamed_dict[func.declarer]
             new_functions[new_name] = func
             renamed_count += 1
@@ -154,7 +154,7 @@ def find_functions_by_name(all_func, name):
         funcs[name] = all_func[name]
         return funcs
     sub_name = "_" + name + "_"
-    for key in all_func.keys():
+    for key in all_func:
         if sub_name in key:
             funcs[key] = all_func[key]
     return funcs
@@ -196,7 +196,7 @@ def get_included_functions(all_functions, include_list):
     return new_all_func   
 ###
 
-def _export_to_file(out_name, all_functions, format_list, included_list = None, excluded_list = None):
+def _export_to_file(out_name, all_functions, format_list, included_list=None, excluded_list=None):
     with open(out_name, "w", encoding="utf-8") as f:
         print(f"Exporting to file {out_name}")
         for function_name in list(all_functions)[::-1]:
@@ -223,7 +223,7 @@ def _add_or_replace_extension(filename, new_ext):
     base = filename.rsplit('.', 1)[0] if '.' in filename else filename
     return base + new_ext
 
-def export_to_file(out_name, all_functions, format_list, included_list = None, excluded_list = None):
+def export_to_file(out_name, all_functions, format_list, included_list=None, excluded_list=None):
     """
     Saves the decompiled functions into a file of a given format.
     

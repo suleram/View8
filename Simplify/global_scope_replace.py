@@ -82,7 +82,7 @@ def _replace_global_scope2_func(all_functions, verbosity) -> int:
                     line_obj.visible = False
                     continue
                 
-                if key in scope_assignments.keys() or not value_pattern.match(value) or exclusion_pattern.match(value):
+                if key in scope_assignments or not value_pattern.match(value) or exclusion_pattern.match(value):
                     # If the same Scope is assigned more than once, or the value is not eligible, mark it as invalid
                     scope_assignments[key] = None
                 else:

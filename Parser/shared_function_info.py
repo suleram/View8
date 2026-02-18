@@ -72,7 +72,7 @@ class GlobalVars:
                 return "global_" + val
 
         if self.funcs_map is not None:
-            if val in self.funcs_map.keys():
+            if val in self.funcs_map:
                 return self.funcs_map[val]
 
         return None    
