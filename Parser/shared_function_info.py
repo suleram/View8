@@ -122,6 +122,9 @@ class SharedFunctionInfo:
             if not match:
                 continue
             index = int(match.group(1))
+            # Ensure const_pool exists and index is within valid bounds; otherwise skip
+            if self.const_pool is None or not (0 <= index < len(self.const_pool)):
+                continue
             if global_vars.parse(self.const_pool[index]):
                 return True
         return False
