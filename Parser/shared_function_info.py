@@ -65,11 +65,13 @@ class GlobalVars:
             return None
 
         val = value.strip('"')
-        if (value in self.strings_set or val in self.strings_set):
-            return "global_" + val
+        if self.strings_set is not None:
+            if (value in self.strings_set or val in self.strings_set):
+                return "global_" + val
 
-        if val in self.funcs_map.keys():
-            return self.funcs_map[val]
+        if self.funcs_map is not None:
+            if val in self.funcs_map.keys():
+                return self.funcs_map[val]
 
         return None    
 
