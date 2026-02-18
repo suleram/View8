@@ -156,10 +156,10 @@ class SimplifyCode:
             scope_start, steps = scope.split("-")
             start_context = reg_scope['current_context']
 
-            if scope_start in reg_scope and get_context_idx_from_var(reg_scope[scope_start]) != None:
+            if (scope_start in reg_scope) and (get_context_idx_from_var(reg_scope[scope_start]) is not None):
                 start_context = get_context_idx_from_var(reg_scope[scope_start])
 
-            elif scope_start in prev_reg_scope and get_context_idx_from_var(prev_reg_scope[scope_start]) != None:
+            elif (scope_start in prev_reg_scope) and (get_context_idx_from_var(prev_reg_scope[scope_start]) is not None):
                 start_context = get_context_idx_from_var(prev_reg_scope[scope_start])
 
             return f"Scope[{function_context_stack.get_context(start_context, int(steps))}]"
