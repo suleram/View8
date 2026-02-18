@@ -47,7 +47,12 @@ def propagate_global_scope(all_func, verbosity):
 def load_functions_set(filename):
     try:
         with open(filename, "r") as file:
-            deobf_funcs = set(line.strip() for line in file)
+            deobf_funcs = set()
+            for line in file:
+                stripped = line.strip()
+                if not stripped or stripped.startswith("#"):
+                    continue
+                deobf_funcs.add(stripped)
             return deobf_funcs
     except FileNotFoundError:
         return None
