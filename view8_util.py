@@ -220,6 +220,15 @@ def _add_or_replace_extension(filename, new_ext):
     return base + new_ext
 
 def export_to_file(out_name, all_functions, format_list, included_list = None, excluded_list = None):
+    """
+    Saves the decompiled functions into a file of a given format.
+    
+    :param out_name: Name of the output file (the extension may be autoadjusted to the output format)
+    :param all_functions: Decompiled functions to be exported
+    :param format_list: A list defining the format/s that will be used to export the content.
+    :param included_list: If defined: only functions to be included in the output (param ignored in `serialized` format)
+    :param excluded_list: If defined: functions to be excluded from the output (param ignored in `serialized` format)
+    """
     serialize_only = False
     serialized_ext = ".pkl"
     text_ext = ".txt"
