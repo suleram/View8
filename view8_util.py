@@ -186,11 +186,11 @@ def get_included_functions(all_functions, include_list):
     number_of_function = len(include_list)
     new_all_func = {}
     while include_list:
-       current_function = include_list.pop()
-       new_all_func[current_function] = all_functions[current_function]
-       next_level = declaration_table.get(current_function, [])
-       number_of_function += len(next_level)
-       include_list += next_level
+        current_function = include_list.pop()
+        new_all_func[current_function] = all_functions[current_function]
+        next_level = declaration_table.get(current_function, [])
+        number_of_functoin += len(next_level)
+        include_list += next_level
     return new_all_func   
 ###
 
