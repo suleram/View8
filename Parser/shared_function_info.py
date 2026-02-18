@@ -9,31 +9,33 @@ from typing import Dict, List, Optional, Union
 ###
 
 class GlobalVars:
+    _STRING_RE = re.compile(r'"([^"\\]*(?:\\.[^"\\]*)*)"')
+    _FUNC_RE = re.compile(r'\b(func_([A-Za-z0-9_$]+)_0x[0-9a-fA-F]+)\b')
+
     def __init__(self):
         self.strings_set = None
         self.funcs_map = None
 
     def parse(self, value) -> bool:
-
-        def _extract_name(func):
-            return func[len("func_"):func.rindex("_0x")]
-
         is_parsed = False
-        _strings_set = set(re.findall(r'"([^"\\]*(?:\\.[^"\\]*)*)"', value))
-        _funcs_set = set(re.findall(r'\bfunc_[A-Za-z0-9_$]+_0x[0-9a-fA-F]+\b', value))
-        if _strings_set:
-            is_parsed = True
-            if not self.strings_set:
-                self.strings_set = set()
-            self.strings_set.update(_strings_set)
 
-        if _funcs_set:
+        strings = set(self._STRING_RE.findall(value))
+        funcs = list(self._FUNC_RE.finditer(value))
+
+        if strings:
             is_parsed = True
-            if not self.funcs_map:
-                self.funcs_map = {}
-            for func in _funcs_set:
-                short_name = _extract_name(func)
-                self.funcs_map[short_name] = func
+            self.strings_set = (self.strings_set or set())
+            self.strings_set.update(strings)
+
+        if funcs:
+            is_parsed = True
+            self.funcs_map = (self.funcs_map or {})
+
+            for match in funcs:
+                full_name = match.group(1)
+                short_name = match.group(2)
+                self.funcs_map[short_name] = full_name
+
         return is_parsed
      
     def is_filled(self) -> bool:
