@@ -276,7 +276,7 @@ def save_trees(all_functions, main_func, main_limit, items_map, out_dir, export_
     file_name = f"{main_func}.txt"
     create_dirs(out_dir)
     out_path = os.path.join(out_dir, file_name)
-    export_to_file(out_path, all_functions, export_format, main_set)
+    export_to_file(out_path, all_functions, export_format, main_set, excluded_list)
 
     # export the subtrees:
     for name, filtered_func in items_map.items():
