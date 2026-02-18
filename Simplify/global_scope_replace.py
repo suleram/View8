@@ -31,9 +31,9 @@ def find_assignment_op(line: str) -> Optional[int]:
         if ch == '=':
             prev = line[i - 1] if i > 0 else ''
             nxt  = line[i + 1] if i + 1 < len(line) else ''
-            if nxt in ('=', '>'):       # == / === / =>
+            if nxt in ('=', '>'):        # == / === / =>
                 continue
-            if prev in ('!', '<', '>'):  # != / <= / >=  (drop '=' from prev check)
+            if prev in ('!', '<', '>', '='):  # != / <= / >= / == / ===
                 continue
             return i
     return None
