@@ -24,7 +24,7 @@ def get_start_function(functions):
         curr_func = sfi.declarer
     return None
 
-def get_all_children(functions, curr_func):
+def get_declared_children(functions, curr_func):
     children_list = [ ]
     for func_name, sfi in functions.items():
         declarer = sfi.declarer
@@ -248,7 +248,7 @@ def split_trees(functions, curr_func):
         print("Declarer Root")
     else:
         print("Parent: " + sfi.declarer)
-    children = get_all_children(functions, curr_func)
+    children = get_declared_children(functions, curr_func)
     my_map = dict()
     for c in children:
         family = get_included_functions(functions, [c])
