@@ -14,14 +14,11 @@ def is_root(sfi):
 def get_start_function(functions):
     if not functions:
         return None
-    curr_func = next(iter(functions))
-    while True:
+    for curr_func in functions:
         sfi = functions.get(curr_func)
         if is_root(sfi):
             return curr_func
-        if sfi is None:
-            break
-        if sfi.declarer is None:
+        if (sfi is None) or (sfi.declarer is None):
             break
         curr_func = sfi.declarer
     return None
