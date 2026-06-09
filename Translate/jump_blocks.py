@@ -1,12 +1,45 @@
 class CodeLine:
-    def __init__(self, opcode="", line="", inst="", translated=""):
+    def __init__(self, opcode="", line="", inst="", translated="", decompiled=""):
         self.v8_opcode = opcode
         self.line_num = line
         self.v8_instruction = inst
         self.translated = translated
-        self.decompiled = ""
+        self.decompiled = decompiled
         self.visible = True
+        self.metadata = None
 
+    def set_metadata(self, meta_type, meta_val):
+        """
+        Set metadata of a particular type for the code line
+        """
+        if not self.metadata:
+            self.metadata = dict()
+        self.metadata[meta_type] = meta_val
+
+    def get_metadata(self, meta_type):
+        """
+        Retrieve metadata of particular type from the code line
+        """
+        if not self.metadata:
+            return None
+        if not isinstance(self.metadata, dict):
+            return None
+        if meta_type not in self.metadata:
+            return None
+        return self.metadata[meta_type]
+
+    def drop_metadata(self, meta_type):
+        """
+        Remove metadata of particular type from the code line
+        """
+        if not self.metadata:
+            return False   
+        if not isinstance(self.metadata, dict):
+            return False
+        if not meta_type in self.metadata:
+            return False
+        self.metadata.pop(meta_type, None)
+        return True
 
 class JumpBlocks:
     def __init__(self, name, code, jump_table):
@@ -23,10 +56,14 @@ class JumpBlocks:
 
     def get_relative_offset(self, offset, n):
         # return a relative line offset to a given offset
-        new_offset = self.code_offset.index(offset) + n
-        if 0 <= new_offset <= len(self.code_offset):
-            return self.code_offset[new_offset]
-        raise Exception(f"relative offset {new_offset} from {offset} out of range")
+        try:
+            base_idx = self.code_offset.index(offset)
+        except ValueError:
+            raise KeyError(f"offset {offset} not found in code offsets")
+        new_idx = base_idx + n
+        if 0 <= new_idx < len(self.code_offset):
+            return self.code_offset[new_idx]
+        raise IndexError(f"relative offset {new_idx} from {offset} out of range")
 
     def get_all_jump_list(self):
         # Combine all jumps from the jump tables into one list

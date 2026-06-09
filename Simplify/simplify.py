@@ -36,23 +36,24 @@ def reg_is_constant(reg, value):
         return False
 
     # Variable is set to a constant value
-    if re.search(r"^[\(]*(Scope|ConstPool|<|true|false|Undefined|Null|null|[+-]?\d)", value):
+    if re.search(r"^[\(]*(Scope|ConstPool|ConstPoolLiteral|<|true|false|Undefined|Null|null|[+-]?\d)", value):
         return True
 
     # Variable is set to register[ConstPool[idx]]
-    if re.search(r"^[ra]\d+\[[\(]*ConstPool\[\d+\]", value):
+    if re.search(r"^[ra]\d+\[[\(]*(ConstPool|ConstPoolLiteral)\[\d+\]", value):
         return True
 
     return False
 
 
 def get_context_idx_from_var(var):
-    if var.was_overwritten:
-        return
-    pattern = r"Scope\[(\d+)\]"
+    #if var.was_overwritten:
+    #    return
+    pattern = r"^Scope\[(\d+)\]$"
     match = re.match(pattern, var.value)
     if match:
         return int(match.group(1))
+    
     return None
 
 
@@ -66,9 +67,15 @@ def is_reg_defined_in_reg_value(reg, value):
 
 
 def create_loop_reg_scope(prev_reg_scope):
+    reg_scope = {}
     # Because loop regs can be overwritten during loop iteration we define prev scope as overwritten
-    reg_scope = {k: Register("", v.all_initialized_index[0], True) for k, v in prev_reg_scope.items() if
-                 not isinstance(v, int)}
+    for k,v in prev_reg_scope.items():
+        if isinstance(v, int):
+            continue
+        if get_context_idx_from_var(v) is not None:
+            reg_scope[k] = prev_reg_scope[k]
+            continue
+        reg_scope[k] = Register("", v.all_initialized_index[0], True)
     reg_scope["current_context"] = prev_reg_scope["current_context"]
     return reg_scope
 
@@ -149,10 +156,10 @@ class SimplifyCode:
             scope_start, steps = scope.split("-")
             start_context = reg_scope['current_context']
 
-            if scope_start in reg_scope:
+            if (scope_start in reg_scope) and (get_context_idx_from_var(reg_scope[scope_start]) is not None):
                 start_context = get_context_idx_from_var(reg_scope[scope_start])
 
-            elif scope_start in prev_reg_scope:
+            elif (scope_start in prev_reg_scope) and (get_context_idx_from_var(prev_reg_scope[scope_start]) is not None):
                 start_context = get_context_idx_from_var(prev_reg_scope[scope_start])
 
             return f"Scope[{function_context_stack.get_context(start_context, int(steps))}]"

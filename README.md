@@ -18,31 +18,42 @@
 <h2>Usage</h2>
 <h3>Command-Line Arguments</h3>
 <ul>
-<li><code>input_file</code>: The input file name.</li>
-<li><code>output_file</code>: The output file name.</li>
-<li><code>--path</code>, <code>-p</code>: Path to disassembler binary (optional).</li>
-<li><code>--disassembled</code>, <code>-d</code>: Indicate if the input file is already disassembled (optional).</li>
-<li><code>--export_format</code>, <code>-e</code>: Specify the export format(s). Options are <code>v8_opcode</code>, <code>translated</code>, and <code>decompiled</code>. Multiple options can be combined (optional, default: <code>decompiled</code>).</li>
+<li><code>--inp</code>, <code>-i</code>: The input file name</li>
+<li><code>--out</code>, <code>-o</code>: Path to the output (depending on the type of the output, a single file or a directory tree may be generated)</li>
+<li><code>--input_format</code>, <code>-f</code>: Indicate format of the input. Options are: <code>raw</code>: the output is a raw JSC file; <code>disassembled</code>: the input file is already disassembled; <code>serialized</code>: the input is already decompiled, and stored in a serialized format (pickle; trusted input only)</li>
+<li><code>--export_format</code>, <code>-e</code>: Specify the export format(s). Options are <code>v8_opcode</code>, <code>translated</code>, <code>decompiled</code>, and <code>serialized</code>. Multiple options can be combined (optional, default: <code>decompiled</code>).</li>
+<li><code>--path</code>, <code>-p</code>: Path to disassembler binary. Required if the input is in the raw format.</li>
+<li><code>--tree</code>, <code>-t</code>: Split output into a tree structure (rather than storing all functions in one file). Specify the function that will be used as a top node of the tree. To start from the default main function, use 'start' (optional).</li>
+<li><code>--mainlimit</code>, <code>-l</code>: In tree mode: a tree with depth above this limit will be treated as different module than main (optional).</li>
+<li><code>--include</code>, <code>-n</code>: Functions tree to Include in the output (optional).</li>
+<li><code>--exclude</code>, <code>-x</code>: Functions tree to Exclude from the output (optional).</li>
 </ul>
 
 <h3>Basic Usage</h3>
 <p>To decompile a V8 bytecode file and export the decompiled code:</p>
-<pre><code>python view8.py input_file output_file</code></pre>
+<pre><code>python view8.py -i input_file -o output_file</code></pre>
 <h3>Disassembler Path</h3>
 <p>By default, <code>view8</code> detects the V8 bytecode version of the input file (using <code>VersionDetector.exe</code>) and automatically searches for a compatible disassembler binary in the <code>Bin</code> folder. This can be changed by specifing a different disassembler binary, use the <code>--path</code> (or <code>-p</code>) option:</p>
-<pre><code>python view8.py input_file output_file --path /path/to/disassembler</code></pre>
+<pre><code>python view8.py -i input_file -o output_file --path /path/to/disassembler</code></pre>
 <h3>Processing Disassembled Files</h3>
-<p>To skip the disassembling process and provide an already disassembled file as the input, use the <code>--disassembled</code> (or <code>-d</code>) flag:</p>
-<pre><code>python view8.py input_file output_file --disassembled</code></pre>
+<p>To skip the disassembling process and provide an already disassembled file as the input, use the <code>--input_format disassembled</code> (or <code>-f disassembled</code>) option:</p>
+<pre><code>python view8.py -i input_file -o output_file -f disassembled</code></pre>
+<h3>Creating and Processing Serialized Files</h3>
+<p>Sometimes we may want to decompile the file into a serialized format (preserving all the objects and structures). This type of an output may be easier to post-process than a text format, and useful i.e. for further deobfuscation. To create a serialized output we use a specific export format: <code>--export_format serialized</code> (or <code>-e serialized</code>)</p>
+<p><strong>Security warning:</strong> the current serialized format is a Python <code>pickle</code> file (<code>.pkl</code>). Unpickling data from untrusted sources can execute arbitrary code. Only load serialized files that you generated yourself.</p>
+<pre><code>python view8.py -i input_file -o output_file -e serialized</code></pre>
+<p>If we ever want to load the serialized output back, and decompile it as a different type of an output, we can do it using <code>--input_format serialized</code> (or <code>-f serialized</code>) option:</p>
+<pre><code>python view8.py -i input_file -o output_file -f serialized</code></pre>
 <h3>Export Formats</h3>
 <p>Specify the export format(s) using the <code>--export_format</code> (or <code>-e</code>) option. You can combine multiple formats:</p>
 <ul>
 <li><code>v8_opcode</code></li>
 <li><code>translated</code></li>
 <li><code>decompiled</code></li>
+<li><code>serialized</code></li>
 </ul>
 <p>For example, to export both V8 opcodes and decompiled code side by side:</p>
-<pre><code>python view8.py input_file output_file -e v8_opcode decompiled</code></pre>
+<pre><code>python view8.py -i input_file -o output_file -e v8_opcode decompiled</code></pre>
 <p>By default, the format used is <code>decompiled</code>.</p>
 
 <h3>VersionDetector.exe</h3>
@@ -52,3 +63,4 @@
     <li><code>-d</code>: Retrieves a hash (little-endian) and returns its corresponding version using brute force.</li>
     <li><code>-f</code>: Retrieves a file and returns its version.</li>
 </ul>
+

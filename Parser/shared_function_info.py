@@ -1,16 +1,83 @@
 from Translate.translate import translate_bytecode
+from Translate.jump_blocks import CodeLine
 from Simplify.simplify import simplify_translated_bytecode
 
+import re
+import pickle
+from typing import Dict, List, Optional, Union
 
-class CodeLine:
-    def __init__(self, opcode="", line="", inst="", translated="", decompiled=""):
-        self.v8_opcode = opcode
-        self.line_num = line
-        self.v8_instruction = inst
-        self.translated = translated
-        self.decompiled = decompiled
-        self.visible = True
+###
 
+class GlobalVars:
+    _STRING_RE = re.compile(r'"([^"\\]*(?:\\.[^"\\]*)*)"')
+    _FUNC_RE = re.compile(r'\b(func_([A-Za-z0-9_$]+)_0x[0-9a-fA-F]+)\b')
+
+    def __init__(self):
+        self.strings_set = None
+        self.funcs_map = None
+
+    def parse(self, value) -> bool:
+        is_parsed = False
+
+        strings = set(self._STRING_RE.findall(value))
+        funcs = list(self._FUNC_RE.finditer(value))
+
+        if strings:
+            is_parsed = True
+            self.strings_set = (self.strings_set or set())
+            self.strings_set.update(strings)
+
+        if funcs:
+            is_parsed = True
+            self.funcs_map = (self.funcs_map or {})
+
+            for match in funcs:
+                full_name = match.group(1)
+                short_name = match.group(2)
+                self.funcs_map[short_name] = full_name
+
+        return is_parsed
+     
+    def is_filled(self) -> bool:
+        if self.strings_set or self.funcs_map:
+            return True
+        return False
+
+    def has_value(self, value) -> bool:
+        if self.strings_set is not None:
+            val = value.strip('"')
+            if (value in self.strings_set or val in self.strings_set):
+                return True
+        if self.funcs_map is not None:
+            if value in self.funcs_map.keys():
+                return True
+        return False
+    
+    def resolve_global_name(self, value) -> Optional[str]:
+
+        def _is_string(value):
+            if value.startswith('"') and value.endswith('"'):
+                return True
+            return False
+
+        if not self.is_filled():
+            return None
+
+        if not _is_string(value):
+            return None
+
+        val = value.strip('"')
+        if self.strings_set is not None:
+            if (value in self.strings_set or val in self.strings_set):
+                return "global_" + val
+
+        if self.funcs_map is not None:
+            if val in self.funcs_map:
+                return self.funcs_map[val]
+
+        return None    
+
+###
 
 class SharedFunctionInfo:
     def __init__(self):
@@ -22,6 +89,8 @@ class SharedFunctionInfo:
         self.code = None
         self.const_pool = None
         self.exception_table = None
+        self.visible = True
+        self.metadata = None
 
     def is_fully_parsed(self):
         return all(
@@ -40,18 +109,62 @@ class SharedFunctionInfo:
     def simplify_bytecode(self):
         simplify_translated_bytecode(self, self.code)
 
-    def replace_const_pool(self):
-        replacements = {f"ConstPool[{idx}]": var for idx, var in enumerate(self.const_pool)}
-        for line in self.code:
-            if not line.visible:
-                continue
-            for const_id, var in replacements.items():
-                line.decompiled = line.decompiled.replace(const_id, var)
+    def fill_global_variables(self, global_vars: GlobalVars):
+        """
+        If the Global Vars were defined anywhere in this function, fill them in and store in the global structure.
+        """
 
-    def decompile(self):
+        patternDef = re.compile(r'ConstPoolLiteral\[(\d+)\]')
+
+        for obj in self.code:
+            line = obj.decompiled
+            if "DeclareGlobals(" not in line:
+                continue
+            match = re.search(patternDef, line.strip())
+            if not match:
+                continue
+            index = int(match.group(1))
+            # Ensure const_pool exists and index is within valid bounds; otherwise skip
+            if self.const_pool is None or not (0 <= index < len(self.const_pool)):
+                continue
+            if global_vars.parse(self.const_pool[index]):
+                return True
+        return False
+
+    def replace_const_pool(self, global_vars: GlobalVars):
+
+        def _replacement(match):
+            index = int(match.group(2))
+            # Ensure const_pool exists and index is within valid bounds; otherwise leave unchanged
+            if self.const_pool is None or not (0 <= index < len(self.const_pool)):
+                return match.group(0)  # Leave unchanged
+
+            value = self.const_pool[index]
+            if match.group(1) == "ConstPool":  # Not ConstPoolLiteral
+
+                global_symbol = global_vars.resolve_global_name(value)
+                if global_symbol:
+                    return global_symbol
+
+                return value.strip('"')
+            return value
+    
+        # Regular expression to match patterns A[NUMBER] or B[NUMBER]
+        pattern = r'(ConstPoolLiteral|ConstPool)\[(\d+)\]'
+
+        #replacements = {f"ConstPool[{idx}]": var.strip('"') for idx, var in enumerate(self.const_pool)}
+        #replacements.update({f"ConstPoolLiteral[{idx}]": var for idx, var in enumerate(self.const_pool)})
+        
+        for line in self.code:
+            if "ConstPool" not in line.decompiled:
+                continue
+            line.decompiled = re.sub(pattern, _replacement, line.decompiled)
+
+    def decompile(self, global_vars: GlobalVars):
         self.translate_bytecode()
         self.simplify_bytecode()
-        self.replace_const_pool()
+        self.fill_global_variables(global_vars)
+        self.replace_const_pool(global_vars)
 
     def export(self, export_v8code=False, export_translated=False, export_decompiled=True):
         export_func = self.create_function_header() + '\n'
@@ -70,3 +183,39 @@ class SharedFunctionInfo:
             if export_line:
                 export_func += export_line + '\n'
         return export_func
+
+####
+
+FunctionsBlob = Union[Dict[str, "SharedFunctionInfo"], List["SharedFunctionInfo"]]
+
+# Helper function for serializing multiple functions
+def serialize_functions(functions: FunctionsBlob) -> bytes:
+    """Serialize decompiled output using pickle.
+
+    SECURITY NOTE:
+      Pickle is unsafe for untrusted input. Only load serialized files that you
+      generated yourself.
+    """
+    return pickle.dumps(functions, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+def deserialize_functions(data: bytes) -> FunctionsBlob:
+    """Deserialize decompiled output using pickle.
+
+    SECURITY NOTE:
+      Unpickling can execute arbitrary code. Do not load files from untrusted
+      sources.
+    """
+    return pickle.loads(data)
+
+
+def save_functions_to_file(functions: FunctionsBlob, filename: str):
+    """Save decompiled output to a file (pickle)."""
+    with open(filename, 'wb') as f:
+        f.write(serialize_functions(functions))
+
+
+def load_functions_from_file(filename: str) -> FunctionsBlob:
+    """Load decompiled output from a file (pickle)."""
+    with open(filename, 'rb') as f:
+        return deserialize_functions(f.read())
