@@ -154,7 +154,10 @@ def main():
                 print(key)
         if len(filtered) == 0:
             return
-        print_funcs(filtered, args.show_all)
+        _show_const=False
+        if args.verbosity:
+            _show_const=True
+        print_funcs(filtered, args.show_all, show_line_num=False, show_const=_show_const)
         return
 
     usage_map = None

@@ -116,6 +116,8 @@ def print_func(func_name, func, show_hidden=False, show_line_num=True, show_cons
     if show_const:
         print(f"# Const Pool")
         print(func.const_pool)
+    print(f"# Arguments: {func.argument_count}")
+    print(f"# Registers: {func.register_count}")
     print(f"# Code")
     indx = 0
     i = 0
