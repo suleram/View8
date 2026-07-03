@@ -4,6 +4,7 @@ import os
 
 from Parser.parse_v8cache import parse_v8cache_file, parse_disassembled_file
 from Parser.shared_function_info import GlobalVars, load_functions_from_file
+from Parser.normalize import normalize_function_names
 from Simplify.global_scope_replace import replace_global_scope
 from split_util import save_trees, build_usage_map, split_usage_trees, split_trees
 
@@ -68,6 +69,10 @@ def main():
                         help="Specify the export format(s). Options are 'v8_opcode', 'translated', 'decompiled', and 'serialized'. Multiple options can be combined.", 
                         default=['decompiled'])
     parser.add_argument('--scope', help="Propagate scope arguments.", default=1, type=int, required=False)
+    parser.add_argument('--normalize', action='store_true',
+                        help="Rebase address-based function names onto a deterministic static base "
+                             "so the same JSC file decompiles identically across runs, while "
+                             "preserving each function's relative offset (RVA).")
     parser.add_argument('--tree', '-t', default=None,
                         help="Show functions tree, starting from a given node. To start from the default main function, use 'start'"
     )
@@ -133,11 +138,18 @@ def main():
     if args.input_format == 'serialized':
         print(f"Reading from serialized, already decompiled input: {args.inp}")
         all_func = load_functions_from_file(args.inp)
+        if args.normalize:
+            all_func = normalize_function_names(all_func, verbosity=args.verbosity)
     else:
         disassembled = False
         if args.input_format == 'disassembled':
             disassembled = True
         all_func = disassemble(args.inp, disassembled, args.path)
+        if args.normalize:
+            # Normalize before decompilation so every downstream artifact
+            # (decompiled code, scope propagation, tree splitting) uses the
+            # deterministic names.
+            all_func = normalize_function_names(all_func, verbosity=args.verbosity)
         decompile(all_func)
 
     if args.scope:
