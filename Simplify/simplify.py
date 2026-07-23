@@ -1,4 +1,5 @@
 import re
+from collections import deque
 from Simplify.function_context_stack import function_context_stack
 
 
@@ -104,6 +105,249 @@ class SimplifyCode:
         self.line_index = 0
         self.tab_level = 0
         self.sfi = sfi
+        self.context_id_by_line = {}
+        self.context_state_by_line = {}
+
+    @staticmethod
+    def _copy_context_state(state):
+        return {
+            "current": frozenset(state["current"]),
+            "accu": frozenset(state["accu"]),
+            "regs": {reg: frozenset(values) for reg, values in state["regs"].items()},
+        }
+
+    @staticmethod
+    def _merge_context_states(old, new):
+        if old is None:
+            return SimplifyCode._copy_context_state(new), True
+
+        merged_current = old["current"] | new["current"]
+        merged_accu = old["accu"] | new["accu"]
+        merged_regs = {}
+        for reg in old["regs"].keys() | new["regs"].keys():
+            values = old["regs"].get(reg, frozenset()) | new["regs"].get(reg, frozenset())
+            if values:
+                merged_regs[reg] = values
+
+        merged = {
+            "current": merged_current,
+            "accu": merged_accu,
+            "regs": merged_regs,
+        }
+        return merged, merged != old
+
+    @staticmethod
+    def _single_context(values):
+        if values and len(values) == 1:
+            return next(iter(values))
+        return None
+
+    @staticmethod
+    def _jump_targets(instruction):
+        return [int(value) for value in re.findall(r"@\s*(\d+)", instruction or "")]
+
+    @staticmethod
+    def _is_unconditional_jump(opcode):
+        return opcode in {"Jump", "JumpConstant", "JumpLoop"}
+
+    @staticmethod
+    def _is_terminal_instruction(opcode):
+        return opcode in {"Return", "Throw", "ReThrow", "Abort"}
+
+    def _context_successors(self, actual_indexes, line_to_index, exception_table):
+        position = {index: pos for pos, index in enumerate(actual_indexes)}
+        successors = {index: set() for index in actual_indexes}
+
+        for index in actual_indexes:
+            line_obj = self.code[index]
+            opcode, _ = self._parse_instruction(line_obj.v8_instruction)
+            targets = self._jump_targets(line_obj.v8_instruction)
+            # Resume targets of SwitchOnGeneratorState restore a suspended
+            # register file and context.  Propagating the function-entry state
+            # directly to them incorrectly merges the outer captured context
+            # into the function's active context.  Analyze the initial
+            # fallthrough path here; resumed paths retain the structured
+            # simplifier fallback unless reconstructed from a suspension edge.
+            if opcode != "SwitchOnGeneratorState":
+                for target in targets:
+                    target_index = line_to_index.get(target)
+                    if target_index is not None:
+                        successors[index].add(target_index)
+
+            pos = position[index]
+            next_index = actual_indexes[pos + 1] if pos + 1 < len(actual_indexes) else None
+            if next_index is None or self._is_terminal_instruction(opcode):
+                continue
+            if not self._is_unconditional_jump(opcode):
+                successors[index].add(next_index)
+
+        # Exception handlers resume with the lexical context active at the
+        # beginning of the protected region.  Seed the handler from that entry
+        # rather than from arbitrary throwing instructions inside nested scopes.
+        for handler_offset, protected in (exception_table or {}).items():
+            if not protected:
+                continue
+            try_start = protected[0]
+            source = line_to_index.get(try_start)
+            handler = line_to_index.get(handler_offset)
+            if source is not None and handler is not None:
+                successors[source].add(handler)
+
+        return successors
+
+    def _transfer_context_state(self, index, state):
+        state = self._copy_context_state(state)
+        instruction = getattr(self.code[index], "v8_instruction", "") or ""
+        opcode, args = self._parse_instruction(instruction)
+        current = state["current"]
+        regs = state["regs"]
+
+        if opcode in {
+            "CreateFunctionContext", "CreateBlockContext", "CreateCatchContext",
+            "CreateEvalContext", "CreateWithContext"
+        }:
+            context_id = self.context_id_by_line[index]
+            state["accu"] = frozenset({context_id})
+            return state
+
+        if opcode == "PushContext" and args:
+            regs[args[0]] = current
+            if state["accu"]:
+                state["current"] = state["accu"]
+            return state
+
+        if opcode == "PopContext" and args:
+            restored = regs.get(args[0], frozenset())
+            if restored:
+                state["current"] = restored
+            return state
+
+        if opcode == "Ldar" and args:
+            state["accu"] = regs.get(args[0], frozenset())
+            return state
+
+        if opcode.startswith("Star"):
+            if opcode == "Star" and args:
+                target = args[0]
+            else:
+                suffix = opcode[4:]
+                target = f"r{suffix}" if suffix.isdigit() else None
+            if target:
+                if state["accu"]:
+                    regs[target] = state["accu"]
+                else:
+                    regs.pop(target, None)
+            return state
+
+        if opcode == "Mov" and len(args) >= 2:
+            source, target = args[0], args[1]
+            if source == "<context>":
+                values = current
+            else:
+                values = regs.get(source, frozenset())
+            if values:
+                regs[target] = values
+            else:
+                regs.pop(target, None)
+            return state
+
+        # Most remaining bytecodes overwrite the accumulator with a regular JS
+        # value.  Jumps and a few bookkeeping instructions preserve it.
+        if not (
+            opcode.startswith("Jump")
+            or opcode in {"Nop", "SetPendingMessage", "SuspendGenerator"}
+        ):
+            state["accu"] = frozenset()
+        return state
+
+    def prepare_context_flow(self, entry_context, exception_table):
+        """Compute branch-aware current-context and context-register states.
+
+        Synthetic Scope IDs are allocated in bytecode order, exactly as the old
+        linear simplifier did, but their parent links and active ranges are
+        derived from the bytecode control-flow graph.
+        """
+        actual_indexes = [
+            index for index, line_obj in enumerate(self.code)
+            if getattr(line_obj, "v8_instruction", "")
+        ]
+        if not actual_indexes:
+            return
+
+        # Allocate stable IDs first; parent edges are filled after dataflow.
+        context_opcodes = []
+        for index in actual_indexes:
+            opcode, _ = self._parse_instruction(self.code[index].v8_instruction)
+            if opcode in {
+                "CreateFunctionContext", "CreateBlockContext", "CreateCatchContext",
+                "CreateEvalContext", "CreateWithContext"
+            }:
+                self.context_id_by_line[index] = function_context_stack.add_new_context(0)
+            if opcode in {
+                "CreateFunctionContext", "CreateBlockContext", "CreateCatchContext",
+                "CreateEvalContext", "CreateWithContext", "PushContext", "PopContext"
+            }:
+                context_opcodes.append((index, opcode))
+
+        # The overwhelmingly common case is one function context activated at
+        # entry and never popped.  It is path-insensitive and does not justify a
+        # CFG walk over very large generated functions.
+        if (
+            len(self.context_id_by_line) == 1
+            and [opcode for _, opcode in context_opcodes].count("PushContext") == 1
+            and not any(opcode == "PopContext" for _, opcode in context_opcodes)
+        ):
+            context_id = next(iter(self.context_id_by_line.values()))
+            function_context_stack.context_stack[context_id] = entry_context
+            return
+
+        line_to_index = {
+            int(self.code[index].line_num): index
+            for index in actual_indexes
+            if str(self.code[index].line_num).lstrip("-").isdigit()
+        }
+        successors = self._context_successors(actual_indexes, line_to_index, exception_table)
+
+        entry_state = {
+            "current": frozenset({entry_context}),
+            "accu": frozenset(),
+            "regs": {},
+        }
+        states = {actual_indexes[0]: entry_state}
+        queue = deque([actual_indexes[0]])
+
+        while queue:
+            index = queue.popleft()
+            out_state = self._transfer_context_state(index, states[index])
+            for successor in successors.get(index, ()):
+                merged, changed = self._merge_context_states(states.get(successor), out_state)
+                if changed:
+                    states[successor] = merged
+                    queue.append(successor)
+
+        self.context_state_by_line = states
+
+        # Fill parent links of newly allocated contexts from their unique entry
+        # context.  Ambiguous/unreachable creates retain parent 0 and fall back
+        # to the structured simplifier for their uses.
+        for index, context_id in self.context_id_by_line.items():
+            state = states.get(index)
+            parent = self._single_context(state["current"]) if state else None
+            if parent is not None:
+                function_context_stack.context_stack[context_id] = parent
+
+    def _flow_state(self):
+        return self.context_state_by_line.get(self.line_index)
+
+    def _flow_current_context(self):
+        state = self._flow_state()
+        return self._single_context(state["current"]) if state else None
+
+    def _flow_register_context(self, reg):
+        state = self._flow_state()
+        if not state:
+            return None
+        return self._single_context(state["regs"].get(reg, frozenset()))
 
     def get_next_line(self):
         self.line_index += 1
@@ -115,14 +359,59 @@ class SimplifyCode:
     def add_simplified_line(self, line):
         self.code[self.line_index].decompiled = '\t' * self.tab_level + line if line else ""
 
-    def change_context(self, line, reg_scope):
-        # Change current_context index
-        if "PushContext" in line:
-            reg_scope["current_context"] = function_context_stack.add_new_context(reg_scope["current_context"])
-            return f"ACCU = Scope[CURRENT-1]"
-        # "PopContext" in line
-        reg_scope["current_context"] = function_context_stack.get_context(reg_scope["current_context"], 1)
-        return f"ACCU = Scope[CURRENT]"
+    @staticmethod
+    def _parse_instruction(instruction):
+        """Return the normalized opcode and comma-separated operands."""
+        instruction = (instruction or "").strip()
+        if not instruction:
+            return "", []
+        opcode, *rest = instruction.split(" ", 1)
+        opcode = opcode.split(".", 1)[0]
+        args = rest[0].split(", ") if rest else []
+        return opcode, args
+
+    @staticmethod
+    def _context_from_register(reg, reg_scope, prev_reg_scope):
+        """Resolve a synthetic Scope ID currently held in a V8 register."""
+        for scope in (reg_scope, prev_reg_scope):
+            value = scope.get(reg)
+            context_id = get_context_idx_from_var(value) if value is not None else None
+            if context_id is not None:
+                return context_id
+        return None
+
+    def _create_context(self, reg_scope):
+        """Materialize the context ID preallocated for this instruction."""
+        new_context = self.context_id_by_line.get(self.line_index)
+        if new_context is None:
+            new_context = function_context_stack.add_new_context(reg_scope["current_context"])
+        return f"ACCU = Scope[{new_context}]"
+
+    def _push_context(self, target_reg, reg_scope, prev_reg_scope):
+        """Apply the real PushContext register semantics."""
+        previous_context = self._flow_current_context()
+        if previous_context is None:
+            previous_context = reg_scope["current_context"]
+        state = self._flow_state()
+        new_context = self._single_context(state["accu"]) if state else None
+        if new_context is None:
+            new_context = self._context_from_register("ACCU", reg_scope, prev_reg_scope)
+        if new_context is None:
+            new_context = previous_context
+        reg_scope["current_context"] = new_context
+        return f"{target_reg} = Scope[{previous_context}]"
+
+    def _pop_context(self, source_reg, reg_scope, prev_reg_scope):
+        """Restore the exact context saved in the PopContext operand."""
+        restored_context = self._flow_register_context(source_reg)
+        if restored_context is None:
+            restored_context = self._context_from_register(source_reg, reg_scope, prev_reg_scope)
+        if restored_context is None:
+            # Compatibility fallback: older View8 assumed one lexical level.
+            restored_context = function_context_stack.get_context(reg_scope["current_context"], 1)
+        reg_scope["current_context"] = restored_context
+        # PopContext changes V8's current-context register, not the accumulator.
+        return ""
 
     def add_current_context_to_sub_function(self, line, reg_scope):
         # Inherit the current context to sub-function
@@ -131,7 +420,10 @@ class SimplifyCode:
             const_pool_index = int(match.group(1))
             if len(self.sfi.const_pool) > const_pool_index:
                 name = self.sfi.const_pool[const_pool_index]
-                function_context_stack.add_function_context(name, reg_scope['current_context'])
+                closure_context = self._flow_current_context()
+                if closure_context is None:
+                    closure_context = reg_scope['current_context']
+                function_context_stack.add_function_context(name, closure_context)
             else:
                 print("Error: ConstPool idx", const_pool_index, "out of range.", len(self.sfi.const_pool))
         else:
@@ -147,18 +439,30 @@ class SimplifyCode:
         def replace_scope(match):
             scope = match.group(1)
 
+            # Already materialized synthetic context IDs do not need another
+            # stack lookup.
+            if scope.isdigit():
+                return f"Scope[{scope}]"
+
             # If the scope is "CURRENT", replace it with the current context
             if scope == "CURRENT":
-                return f"Scope[{reg_scope['current_context']}]"
+                current_context = self._flow_current_context()
+                if current_context is None:
+                    current_context = reg_scope['current_context']
+                return f"Scope[{current_context}]"
 
             # Handles cases like CURRENT-1, r1-2
 
-            scope_start, steps = scope.split("-")
-            start_context = reg_scope['current_context']
+            scope_start, steps = scope.split("-", 1)
+            start_context = self._flow_current_context()
+            if start_context is None:
+                start_context = reg_scope['current_context']
 
-            if (scope_start in reg_scope) and (get_context_idx_from_var(reg_scope[scope_start]) is not None):
+            flow_context = self._flow_register_context(scope_start)
+            if flow_context is not None:
+                start_context = flow_context
+            elif (scope_start in reg_scope) and (get_context_idx_from_var(reg_scope[scope_start]) is not None):
                 start_context = get_context_idx_from_var(reg_scope[scope_start])
-
             elif (scope_start in prev_reg_scope) and (get_context_idx_from_var(prev_reg_scope[scope_start]) is not None):
                 start_context = get_context_idx_from_var(prev_reg_scope[scope_start])
 
@@ -269,9 +573,33 @@ class SimplifyCode:
         return None
 
     def simplify_line(self, line, reg_scope, prev_reg_scope, overwritten_regs):
-        # Handle context change
-        if "PopContext" in line or "PushContext" in line:
-            line = self.change_context(line, reg_scope)
+        instruction = getattr(self.code[self.line_index], "v8_instruction", "") or ""
+        opcode, args = self._parse_instruction(instruction)
+
+        flow_current = self._flow_current_context()
+        if flow_current is not None:
+            reg_scope["current_context"] = flow_current
+
+        # Model context creation, activation, and restoration as three distinct
+        # V8 operations.  The previous implementation activated a context on
+        # Create*Context and treated PopContext as a one-level parent walk,
+        # which fails for branch exits and nested catch/block contexts.
+        if opcode in {
+            "CreateFunctionContext", "CreateBlockContext", "CreateCatchContext",
+            "CreateEvalContext", "CreateWithContext"
+        }:
+            line = self._create_context(reg_scope)
+        elif opcode == "PushContext" and args:
+            line = self._push_context(args[0], reg_scope, prev_reg_scope)
+        elif opcode == "PopContext" and args:
+            line = self._pop_context(args[0], reg_scope, prev_reg_scope)
+
+        # `<context>` is V8's current-context register.  Materialize it so Mov
+        # and context-register-based Lda/Sta instructions can participate in
+        # normal register propagation.
+        if "<context>" in line:
+            line = line.replace("<context>", f"Scope[{reg_scope['current_context']}]")
+
         if "new func" in line:
             line = self.add_current_context_to_sub_function(line, reg_scope)
 
@@ -325,7 +653,9 @@ class SimplifyCode:
 
 def simplify_translated_bytecode(sfi, code):
     simplify = SimplifyCode(code, sfi)
-    regs = {"current_context": function_context_stack.get_func_context(sfi.name, sfi.declarer)}
+    entry_context = function_context_stack.get_func_context(sfi.name, sfi.declarer)
+    simplify.prepare_context_flow(entry_context, sfi.exception_table)
+    regs = {"current_context": entry_context}
     simplify.simplify_block(regs)
     if simplify.line_index != len(code) -1:
         print(f"Warning! failed to decompile {sfi.name} stopped after {simplify.line_index}/{len(code)-1}")
