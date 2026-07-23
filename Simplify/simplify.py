@@ -589,6 +589,7 @@ class SimplifyCode:
             "CreateEvalContext", "CreateWithContext"
         }:
             line = self._create_context(reg_scope)
+            self.code[self.line_index].visible = False
         elif opcode == "PushContext" and args:
             line = self._push_context(args[0], reg_scope, prev_reg_scope)
         elif opcode == "PopContext" and args:
