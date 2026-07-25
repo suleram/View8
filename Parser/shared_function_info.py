@@ -201,33 +201,24 @@ class SharedFunctionInfo:
 FunctionsBlob = Union[Dict[str, "SharedFunctionInfo"], List["SharedFunctionInfo"]]
 
 # Helper function for serializing multiple functions
-def serialize_functions(functions: FunctionsBlob) -> bytes:
-    """Serialize decompiled output using pickle.
+
+def save_functions_to_file(functions: FunctionsBlob, filename: str):
+    """Save decompiled output to a pickle file.
 
     SECURITY NOTE:
       Pickle is unsafe for untrusted input. Only load serialized files that you
       generated yourself.
     """
-    return pickle.dumps(functions, protocol=pickle.HIGHEST_PROTOCOL)
+    with open(filename, "wb") as f:
+        pickle.dump(functions, f, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-def deserialize_functions(data: bytes) -> FunctionsBlob:
-    """Deserialize decompiled output using pickle.
+def load_functions_from_file(filename: str) -> FunctionsBlob:
+    """Load decompiled output from a pickle file.
 
     SECURITY NOTE:
       Unpickling can execute arbitrary code. Do not load files from untrusted
       sources.
     """
-    return pickle.loads(data)
-
-
-def save_functions_to_file(functions: FunctionsBlob, filename: str):
-    """Save decompiled output to a file (pickle)."""
-    with open(filename, 'wb') as f:
-        f.write(serialize_functions(functions))
-
-
-def load_functions_from_file(filename: str) -> FunctionsBlob:
-    """Load decompiled output from a file (pickle)."""
-    with open(filename, 'rb') as f:
-        return deserialize_functions(f.read())
+    with open(filename, "rb") as f:
+        return pickle.load(f)
