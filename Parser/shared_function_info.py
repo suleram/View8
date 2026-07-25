@@ -104,7 +104,19 @@ class SharedFunctionInfo:
         return f"function {self.name}({', '.join([f'a{i}' for i in range(int(self.argument_count) - 1)])})"
 
     def translate_bytecode(self):
-        translate_bytecode(self.name, self.code, self.exception_table)
+        result = translate_bytecode(self.name, self.code, self.exception_table)
+
+        if not isinstance(self.metadata, dict):
+            self.metadata = {}
+
+        available = bool(result and result.get("available"))
+        self.metadata["jump_target_metadata_available"] = available
+
+        self.metadata.pop("jump_target_metadata_error", None)
+        if not available:
+            error = result.get("error") if isinstance(result, dict) else None
+            if error:
+                self.metadata["jump_target_metadata_error"] = error
 
     def simplify_bytecode(self):
         simplify_translated_bytecode(self, self.code)
