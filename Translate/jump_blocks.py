@@ -124,10 +124,49 @@ class JumpBlocks:
 
         return end_jumps
 
+    _TERMINAL_OPCODES = {"Return", "Throw", "ReThrow"}
+
+    @staticmethod
+    def _opcode(code_line):
+        """Return the base V8 opcode, without operands or .Wide suffixes."""
+        instruction = (getattr(code_line, "v8_instruction", "") or "").strip()
+        if not instruction:
+            return ""
+        return instruction.split(None, 1)[0].split(".", 1)[0]
+
+    def _continue_target_reaches_latch(self, continue_jump, range_end):
+        """Check that a continue candidate can fall through to the loop latch.
+
+        get_all_jump_list() shifts non-loop jump ends one instruction backward,
+        so the actual branch target is the instruction after continue_jump.end.
+        handle_loop() passes the instruction immediately before JumpLoop as
+        range_end, making the following instruction the loop latch.
+
+        A jump into a terminal block near the end of a loop is an alternate exit,
+        not a continue.  Treating it as a continue loses the branch structure and
+        can leave two textual returns next to each other.
+        """
+        try:
+            target = self.get_relative_offset(continue_jump.end, 1)
+            loop_latch = self.get_relative_offset(range_end, 1)
+        except (KeyError, ValueError, IndexError):
+            return False
+
+        current = target
+        while current != loop_latch:
+            if self._opcode(self.code[current]) in self._TERMINAL_OPCODES:
+                return False
+            try:
+                current = self.get_relative_offset(current, 1)
+            except (KeyError, ValueError, IndexError):
+                return False
+
+        return True
+
     def handle_continue(self, range_start, range_end):
         try:
             near_loop_end = self.get_relative_offset(range_end, -4)
-        except Exception as e:
+        except (KeyError, ValueError, IndexError):
             return
 
         statement = "continue"
@@ -137,8 +176,13 @@ class JumpBlocks:
             if not (range_start <= continue_jump.start and near_loop_end <= continue_jump.end <= range_end):
                 continue
 
-            # Skip If jumps that end in a Jump
+            # Skip If jumps that end in a Jump.
             if continue_jump.type == "If" and continue_jump.end in self.jump_table["Jump"]:
+                continue
+
+            # A target block that returns/throws before the JumpLoop latch is an
+            # alternate loop exit. Leave it for the normal if/jump handlers.
+            if not self._continue_target_reaches_latch(continue_jump, range_end):
                 continue
 
             if continue_jump.type == "If":
