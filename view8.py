@@ -16,6 +16,25 @@ from view8_util import (
 )
 ####
 
+_AUTO_NORMALIZE_MAP = "__AUTO_NORMALIZE_MAP__"
+
+
+def resolve_normalize_map_path(requested_path, out_path, input_path,
+                               output_is_directory=False):
+    """Resolve --normalize-map, including its path-less automatic form."""
+    if requested_path is None:
+        return None
+    if requested_path != _AUTO_NORMALIZE_MAP:
+        return requested_path
+
+    if out_path and output_is_directory:
+        input_stem = os.path.splitext(os.path.basename(input_path))[0]
+        return os.path.join(out_path, f"{input_stem}.name_map.csv")
+
+    base_path = out_path or input_path
+    root, _ = os.path.splitext(base_path)
+    return f"{root}.name_map.csv"
+
 def disassemble(in_file, input_is_disassembled, disassembler):
     out_name = 'disasm.tmp'
     view8_dir = os.path.dirname(os.path.abspath(__file__))
@@ -72,7 +91,12 @@ def main():
     parser.add_argument('--normalize', action='store_true',
                         help="Rebase address-based function names onto a deterministic static base "
                              "so the same JSC file decompiles identically across runs, while "
-                             "preserving each function's relative offset (RVA).")
+                             "assigning identifiers by deterministic parse order.")
+    parser.add_argument('--normalize-map', '--normalize_map', dest='normalize_map',
+                        nargs='?', const=_AUTO_NORMALIZE_MAP, default=None, metavar='CSV',
+                        help="Write an original_name -> normalized_name CSV while normalizing. "
+                             "If CSV is omitted, derive '<output>.name_map.csv' from --out, "
+                             "or from --inp when --out is not set. Requires --normalize.")
     parser.add_argument('--tree', '-t', default=None,
                         help="Show functions tree, starting from a given node. To start from the default main function, use 'start'"
     )
@@ -106,6 +130,16 @@ def main():
     parser.add_argument('--show_all', help="Should show lines marked as hidden (in function display mode)", default=False, required=False, action='store_true')
     parser.add_argument('--verbosity', '-v', help="Verbosity level (0-3)", default=0, type=int, required=False)
     args = parser.parse_args()
+
+    if args.normalize_map is not None and not args.normalize:
+        parser.error("--normalize-map requires --normalize")
+
+    normalize_map_path = resolve_normalize_map_path(
+        args.normalize_map,
+        args.out,
+        args.inp,
+        output_is_directory=bool(args.tree),
+    )
     
     if args.tree:
         if args.inline_depth < 0:
@@ -139,7 +173,11 @@ def main():
         print(f"Reading from serialized, already decompiled input: {args.inp}")
         all_func = load_functions_from_file(args.inp)
         if args.normalize:
-            all_func = normalize_function_names(all_func, verbosity=args.verbosity)
+            all_func = normalize_function_names(
+                all_func,
+                verbosity=args.verbosity,
+                mapping_csv=normalize_map_path,
+            )
     else:
         disassembled = False
         if args.input_format == 'disassembled':
@@ -149,7 +187,11 @@ def main():
             # Normalize before decompilation so every downstream artifact
             # (decompiled code, scope propagation, tree splitting) uses the
             # deterministic names.
-            all_func = normalize_function_names(all_func, verbosity=args.verbosity)
+            all_func = normalize_function_names(
+                all_func,
+                verbosity=args.verbosity,
+                mapping_csv=normalize_map_path,
+            )
         decompile(all_func)
 
     if args.scope:

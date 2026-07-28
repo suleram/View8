@@ -37,6 +37,10 @@
 
 <li><code>--scope</code>: Propagate scope arguments. Default: <code>1</code>.</li>
 
+<li><code>--normalize</code>: Replace address-derived function identifiers with deterministic names based on parse order.</li>
+
+<li><code>--normalize-map [CSV]</code>: While using <code>--normalize</code>, write a CSV mapping every original function name to its normalized name. When the path is omitted, View8 derives <code>&lt;output&gt;.name_map.csv</code> from <code>--out</code>, or from <code>--inp</code> when no output path is set.</li>
+
 <li><code>--tree</code>, <code>-t</code>: Split output into a tree structure rather than storing all functions in one file. Specify the function that will be used as the tree root. To start from the default main function, use <code>start</code>.</li>
 
 <li><code>--split_mode</code>: Tree splitting mode. Options are <code>declarers</code>, <code>calls</code>, and <code>references</code>. Default: <code>declarers</code>.</li>
@@ -72,6 +76,33 @@
 <h3>Processing Disassembled Files</h3>
 <p>To skip the disassembling process and provide an already disassembled file as the input, use the <code>--input_format disassembled</code> or <code>-f disassembled</code> option:</p>
 <pre><code>python view8.py -i input_file -o output_file -f disassembled</code></pre>
+
+
+<h3>Deterministic Function Names and Mapping CSV</h3>
+<p>Use <code>--normalize</code> to replace address-derived function names with deterministic identifiers. To preserve the relationship between the original and normalized names, add <code>--normalize-map</code>:</p>
+
+<pre><code>python view8.py \
+  --input_format disassembled \
+  --inp sample.jsc.disasm.txt \
+  --normalize \
+  --normalize-map \
+  --out decompiled/sample.dec.txt \
+  --export_format decompiled serialized</code></pre>
+
+<p>This writes <code>decompiled/sample.dec.name_map.csv</code> with the following columns:</p>
+
+<pre><code>original_name,normalized_name
+func_start_0x268514e9dcd9,func_start_0x100000000
+func_rne_0x268514eb0779,func_rne_0x100000001</code></pre>
+
+<p>An explicit CSV path can also be provided:</p>
+
+<pre><code>python view8.py \
+  --input_format disassembled \
+  --inp sample.jsc.disasm.txt \
+  --normalize \
+  --normalize-map mappings/sample.names.csv \
+  --out decompiled/sample.dec.txt</code></pre>
 
 
 <h3>Creating and Processing Serialized Files</h3>

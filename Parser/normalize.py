@@ -47,8 +47,10 @@ other characters (e.g. accessors emitted as `func_get entries_0x..`). New names
 are sanitized to clean identifiers so downstream tooling keeps working.
 """
 
+import csv
+import os
 import re
-from typing import Dict, List, Pattern
+from typing import Dict, List, Optional, Pattern
 
 # Recovers the <label> from an address-based name. `.*` is greedy and tolerates
 # spaces / dots / any character in the label.
@@ -116,6 +118,22 @@ def _build_index_mapping(old_names: List[str], virtual_base: int) -> Dict[str, s
     return mapping
 
 
+def write_name_mapping_csv(mapping: Dict[str, str], output_path: str) -> None:
+    """Write the original-to-normalized function-name mapping as CSV.
+
+    The dictionary insertion order is preserved, so rows follow the same parse
+    order used to assign normalized identifiers.
+    """
+    parent_dir = os.path.dirname(os.path.abspath(output_path))
+    if parent_dir:
+        os.makedirs(parent_dir, exist_ok=True)
+
+    with open(output_path, "w", newline="", encoding="utf-8") as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(["original_name", "normalized_name"])
+        writer.writerows(mapping.items())
+
+
 def _apply_mapping(all_func: Dict[str, object],
                    mapping: Dict[str, str],
                    name_matcher: Pattern) -> Dict[str, object]:
@@ -153,7 +171,8 @@ def _apply_mapping(all_func: Dict[str, object],
 
 def normalize_function_names(all_func: Dict[str, object],
                              virtual_base: int = K_VIRTUAL_BASE,
-                             verbosity: int = 0) -> Dict[str, object]:
+                             verbosity: int = 0,
+                             mapping_csv: Optional[str] = None) -> Dict[str, object]:
     """
     Rename functions by parse-order index onto a hardcoded virtual base.
 
@@ -165,6 +184,8 @@ def normalize_function_names(all_func: Dict[str, object],
         Base folded into every name (default K_VIRTUAL_BASE, 0x100000000).
     verbosity : int
         >0 prints a short summary.
+    mapping_csv : str or None
+        Optional path for a CSV containing ``original_name,normalized_name``.
 
     Returns the rebuilt function map. Callers must use the return value, since
     the dict keys are rewritten.
@@ -182,7 +203,14 @@ def normalize_function_names(all_func: Dict[str, object],
 
     result = _apply_mapping(all_func, mapping, name_matcher)
 
+    # Write the mapping only after all in-memory rewrites have succeeded, so a
+    # CSV on disk always corresponds to a completed normalization pass.
+    if mapping_csv:
+        write_name_mapping_csv(mapping, mapping_csv)
+
     if verbosity:
         print(f"Normalized {len(mapping)} function names (index).")
+    if mapping_csv:
+        print(f"Function name mapping written to: {mapping_csv}")
 
     return result
