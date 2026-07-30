@@ -83,7 +83,9 @@ class JumpBlocks:
 
     def close_section(self, start, end):
         for catch in self.jump_table["Catch"].values():
-            if start < catch.start <= catch.end == catch.end:
+            # If the section spans a catch trampoline and shares its end
+            # target, close it before the catch block.
+            if start < catch.start <= end == catch.end:
                 end = catch.start
         if "{" in self.code[end].translated:
             self.code[end].translated = "\n}\n" + self.code[end].translated
