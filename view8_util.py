@@ -58,11 +58,12 @@ def _rename_functions(
     new_functions: dict[str, SharedFunctionInfo] = {}
 
     for name, func in functions.items():
+        if func.declarer in renamed_dict:
+            func.declarer = renamed_dict[func.declarer]
+
         if name in renamed_dict:
             new_name = renamed_dict[name]
             func.name = new_name
-            if func.declarer in renamed_dict:
-                func.declarer = renamed_dict[func.declarer]
             new_functions[new_name] = func
             renamed_count += 1
         else:
@@ -115,6 +116,8 @@ def print_func(func_name, func, show_hidden=False, show_line_num=True, show_cons
     if show_const:
         print(f"# Const Pool")
         print(func.const_pool)
+    print(f"# Arguments: {func.argument_count}")
+    print(f"# Registers: {func.register_count}")
     print(f"# Code")
     indx = 0
     i = 0
@@ -249,23 +252,6 @@ def export_to_file(out_name, all_functions, format_list, included_list=None, exc
 
 ###
 
-def split_trees(functions, curr_func):
-    sfi = functions.get(curr_func)
-    if sfi is None:
-        return None
-    print("Tree root: " + sfi.name)
-    if sfi.declarer is None:
-        print("Declarer Root")
-    else:
-        print("Parent: " + sfi.declarer)
-    children = get_declared_children(functions, curr_func)
-    my_map = dict()
-    for c in children:
-        family = get_included_functions(functions, [c])
-        my_map[c] = family
-    sorted_map = dict(sorted(my_map.items(), key=lambda item: len(item[1])))
-    return sorted_map
-
 def create_dirs(nested_directory):
     is_ok = False
     try:
@@ -276,29 +262,4 @@ def create_dirs(nested_directory):
     except Exception as e:
         print(f"An error occurred: {e}")
     return is_ok
-
-def save_trees(all_functions, main_func, main_limit, items_map, out_dir, export_format, excluded_list):
-    # export the root function and directly related:
-    main_set = [main_func]
-    for name, filtered_func in items_map.items():
-        if len(filtered_func) <= main_limit:
-            main_set += filtered_func
-    file_name = f"{main_func}.txt"
-    create_dirs(out_dir)
-    out_path = os.path.join(out_dir, file_name)
-    export_to_file(out_path, all_functions, export_format, main_set, excluded_list)
-
-    # export the subtrees:
-    for name, filtered_func in items_map.items():
-        if len(filtered_func) <= main_limit:
-            continue #skip
-        print(f"Name: {name}, List Length: {len(filtered_func)}")
-        subdir = f"{len(filtered_func)}"
-        file_name = f"{name}.txt"
-        dirs = os.path.join(out_dir, subdir)
-        create_dirs(dirs)
-        out_path = os.path.join(out_dir, subdir, file_name)
-        export_to_file(out_path, all_functions, export_format, filtered_func, excluded_list)
-
-###
 

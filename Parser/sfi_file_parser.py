@@ -76,7 +76,12 @@ def parse_const_line(lines, func_name):
     if not address:
         return var_idx, value
     if value.startswith("<String"):
-        value = json.dumps(value.split("#", 1)[-1].rstrip('> ')) #.replace('"', '\\"')
+        # Keep whitespace that belongs to the string itself.
+        # Example: <String[6]: #Hello > must become "Hello ", not "Hello".
+        raw = value.split("#", 1)[-1]
+        if raw.endswith(">"):
+            raw = raw[:-1]
+        value = json.dumps(raw) #.replace('"', '\"')
         #return var_idx, f'"{value}"'
         return var_idx, value
     if value.startswith("<SharedFunctionInfo"):
