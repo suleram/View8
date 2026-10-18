@@ -75,6 +75,28 @@ def get_scope_id(args):
     return f"{args[0]}-{args[2][1:-1]}"
 
 
+def get_register_name(arg):
+    """Return the register operand without V8's appended jump annotation."""
+    return arg.split(" ", 1)[0]
+
+
+def find_non_default_constructor_or_construct(obj):
+    outputs = expand_reg_list(obj.args[2])
+    if len(outputs) == 2:
+        return (
+            f"[{outputs[0]}, {outputs[1]}] = "
+            f"FindNonDefaultConstructorOrConstruct({obj.args[0]}, {obj.args[1]})"
+        )
+    return f"FindNonDefaultConstructorOrConstruct({', '.join(obj.args)})"
+
+
+def unsupported_operator(obj):
+    # Keep decompilation unattended. Preserve the unsupported operation in the
+    # pseudocode instead of stopping for interactive input or silently dropping it.
+    args = f" {', '.join(obj.args)}" if obj.args else ""
+    return f"// Unsupported V8 operator: {obj.operator}{args}"
+
+
 operands = {
     #################
     # call operands #
@@ -95,6 +117,8 @@ operands = {
     "InvokeIntrinsic": lambda obj: invoke_intrinsic(obj.args),
     "Construct": lambda obj: f"ACCU = {obj.args[0]}({', '.join(expand_reg_list(obj.args[1]))})",
     "ConstructWithSpread": lambda obj: f"ACCU = {obj.args[0]}(...{', '.join(expand_reg_list(obj.args[1]))}))",
+    "ConstructForwardAllArgs": lambda obj: f"ACCU = ConstructForwardAllArgs({obj.args[0]}, ACCU)",
+    "FindNonDefaultConstructorOrConstruct": find_non_default_constructor_or_construct,
 
     ###################
     # Create operands #
@@ -127,6 +151,7 @@ operands = {
     "JumpIfToBooleanTrue": lambda obj: add_jump_blocks(obj, "If") or "if (ACCU)",
     "JumpIfToBooleanFalse": lambda obj: add_jump_blocks(obj, "If") or "if (!ACCU)",
     "JumpIfJSReceiver": lambda obj: add_jump_blocks(obj, "IfJSReceiver") or "if (JumpIfJSReceiver(ACCU))",
+    "JumpIfForInDone": lambda obj: add_jump_blocks(obj, "If") or f"if ({get_register_name(obj.args[1])} == {get_register_name(obj.args[2])})",
 
     "JumpConstant": lambda obj: add_jump_blocks(obj, "Jump") or "",
     "JumpLoopConstant": lambda obj: add_jump_blocks(obj, "JumpLoop") or "",
@@ -140,6 +165,7 @@ operands = {
     "JumpIfToBooleanTrueConstant": lambda obj: add_jump_blocks(obj, "If") or "if (ACCU)",
     "JumpIfToBooleanFalseConstant": lambda obj: add_jump_blocks(obj, "If") or "if (!ACCU)",
     "JumpIfJSReceiverConstant": lambda obj: add_jump_blocks(obj, "IfJSReceiver") or "if (!JumpIfJSReceiver(ACCU))",
+    "JumpIfForInDoneConstant": lambda obj: add_jump_blocks(obj, "If") or f"if ({get_register_name(obj.args[1])} == {get_register_name(obj.args[2])})",
 
     #################
     # Load operands #
@@ -180,6 +206,7 @@ operands = {
     "GetNamedPropertyFromSuper": lambda obj: f"ACCU = ACCU[ConstPoolLiteral{obj.args[1]}]",
     "GetNamedProperty": lambda obj: f"ACCU = {obj.args[0]}[ConstPoolLiteral{obj.args[1]}]",
     "GetKeyedProperty": lambda obj: f"ACCU = {obj.args[0]}[ACCU]",
+    "GetEnumeratedKeyedProperty": lambda obj: f"ACCU = {obj.args[0]}[ACCU]",
     "GetTemplateObject": lambda obj: f"ACCU = ConstPool{obj.args[0]}",
     "LdaKeyedProperty": lambda obj: f"ACCU = {obj.args[0]}[ACCU]",
     "LdaCurrentContextSlot": lambda obj: f"ACCU = Scope[CURRENT]{obj.args[0]}",
@@ -251,6 +278,7 @@ operands = {
     "ToNumeric": lambda obj: f"ACCU = Number(ACCU)",
     "ToNumber": lambda obj: f"ACCU = Number(ACCU)",
     "ToObject": lambda obj: f"ACCU = ToObject(ACCU)",
+    "ToBoolean": lambda obj: f"ACCU = Boolean(ACCU)",
     "ToName": lambda obj: f"ACCU = ToName(ACCU)",
     "ToBooleanLogicalNot": lambda obj: f"ACCU = !Boolean(ACCU)",
     "CloneObject": lambda obj: f"ACCU = CloneObject({obj.args[0]})",
@@ -351,7 +379,7 @@ operands = {
     "ForInNext": lambda obj: f"ACCU = {obj.args[0]}.next().value",
     "ForInStep": lambda obj: f"ACCU = GeneratorStep({obj.args[0]})",
 
-    "Not Found": lambda obj: input(f"Operator {obj.operator} was not found in table") and f"//{obj.operator})",
+    "Not Found": unsupported_operator,
 
 }
 

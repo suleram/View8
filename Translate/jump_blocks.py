@@ -293,6 +293,78 @@ class JumpBlocks:
             self.handle_int_switch_case(jmp)
             return True
 
+    def handle_nullish_coalesced_false_branch(self, first_if):
+        """Structure `(value ?? fallback)` used as a false-branch condition.
+
+        V8 can compile a nullish-coalesced boolean test as:
+
+            JumpIfUndefinedOrNull fallback
+            JumpIfToBooleanTrue    continuation
+            Jump                   body
+        fallback:
+            ... compute fallback into ACCU ...
+            JumpIfToBooleanTrue    continuation
+        body:
+            ...
+        continuation:
+
+        The generic switch heuristic mistakes this diamond for a switch because
+        it sees two conditional jumps plus a following unconditional jump.
+        Reconstruct the nullish fallback first, then emit one `if (!ACCU)` for
+        the shared false branch.
+        """
+        if first_if.type != "If":
+            return False
+
+        if self._opcode(self.code[first_if.start]) not in {
+            "JumpIfUndefinedOrNull", "JumpIfUndefinedOrNullConstant"
+        }:
+            return False
+
+        try:
+            primary_test_start = self.get_relative_offset(first_if.start, 1)
+            primary_test = self.jump_table["If"].get(primary_test_start)
+            if not primary_test:
+                return False
+
+            if self._opcode(self.code[primary_test.start]) not in {
+                "JumpIfToBooleanTrue", "JumpIfToBooleanTrueConstant"
+            }:
+                return False
+
+            skip_start = self.get_relative_offset(primary_test.start, 1)
+            skip_fallback = self.jump_table["Jump"].get(skip_start)
+            if not skip_fallback or first_if.end != skip_fallback.start:
+                return False
+
+            fallback_test = self.jump_table["If"].get(skip_fallback.end)
+            if not fallback_test:
+                return False
+
+            if self._opcode(self.code[fallback_test.start]) not in {
+                "JumpIfToBooleanTrue", "JumpIfToBooleanTrueConstant"
+            }:
+                return False
+
+            if fallback_test.end != primary_test.end:
+                return False
+        except (KeyError, ValueError, IndexError):
+            return False
+
+        # The nullish edge enters the fallback block. The non-nullish edge skips
+        # it. Both paths then share the same truthiness test.
+        self.code[first_if.start].translated += "\n{"
+        self.code[primary_test.start].translated = ""
+        self.code[skip_fallback.start].translated = ""
+        self.code[fallback_test.start].translated = "\n}\nif (!ACCU)\n{"
+        self.close_section(fallback_test.start, fallback_test.end)
+
+        self.jump_done(first_if)
+        self.jump_done(primary_test)
+        self.jump_done(skip_fallback)
+        self.jump_done(fallback_test)
+        return True
+
     def handle_switch(self, swt):
         # Ensure the jump type is 'If'
         if swt.type != "If":
@@ -447,6 +519,8 @@ class JumpBlocks:
         return True
 
     def handle_if(self, jmp):
+        if self.handle_nullish_coalesced_false_branch(jmp):
+            return
         if self.handle_switch(jmp):
             return
         self.handle_if_statement(jmp)

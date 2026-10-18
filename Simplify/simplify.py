@@ -607,6 +607,23 @@ class SimplifyCode:
         # Fix the context var with context stack index
         line = self.replace_scope_stack_with_idx(line, reg_scope, prev_reg_scope)
 
+        # V8 13's FindNonDefaultConstructorOrConstruct writes two output
+        # registers at once.  Treat the pair as an assignment so stale register
+        # values are not substituted into the left-hand side.  The two outputs
+        # have different semantics, so invalidate both register values instead
+        # of pretending that either one equals the whole RHS expression.
+        pair_match = re.match(r"^\[([ra]\d+),\s*([ra]\d+)\] = (.+)$", line)
+        if pair_match:
+            reg1, reg2, value = pair_match.groups()
+            value = self.replace_reg_with_constant(value, reg_scope)
+            self.add_reg_to_reg_scope(
+                reg1, "", reg_scope, prev_reg_scope, overwritten_regs
+            )
+            self.add_reg_to_reg_scope(
+                reg2, "", reg_scope, prev_reg_scope, overwritten_regs
+            )
+            return f"[{reg1}, {reg2}] = {value}"
+
         # replace constant regs
         if not re.search(r"^(ACCU|CASE_\d+|[ra]\d+) = ", line):
             simplified_return = self.simplify_return_line(line, reg_scope)
