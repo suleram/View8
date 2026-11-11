@@ -372,12 +372,24 @@ class JumpBlocks:
 
         # Collect all 'If' jump cases within the switch jump's range
         cases = [c for c in self.jump_table['If'].values() if swt.start <= c.start <= swt.end <= c.end]
+        if not cases:
+            return False
 
         # Identify the default case as a 'Jump' right after the last case's start
         default_case = self.jump_table['Jump'].get(self.get_relative_offset(cases[-1].start, 1), None)
 
         # Validate that there are at least two distinct end values among the cases and that a default case exists
         if len(set(c.end for c in cases)) < 2 or not default_case or swt.end < default_case.start:
+            return False
+
+        # An inner chain may branch to the next case (or default) of an
+        # enclosing switch.  Earlier switch conversions have already written
+        # that label at the destination.  Converting the inner chain into yet
+        # another switch would append a second case/default label and unmatched
+        # braces at the shared target, potentially ending the function early.
+        # Keep the inner conditional chain as if statements in that situation.
+        target_code = self.code[default_case.end].translated
+        if ("\ncase CASE_" in target_code or "\ndefault:" in target_code):
             return False
 
         # Append the default case and sort cases by their end value
