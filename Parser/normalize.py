@@ -129,7 +129,7 @@ def write_name_mapping_csv(mapping: Dict[str, str], output_path: str) -> None:
         os.makedirs(parent_dir, exist_ok=True)
 
     with open(output_path, "w", newline="", encoding="utf-8") as csv_file:
-        writer = csv.writer(csv_file)
+        writer = csv.writer(csv_file, lineterminator="\n")
         writer.writerow(["original_name", "normalized_name"])
         writer.writerows(mapping.items())
 
